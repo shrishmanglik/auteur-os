@@ -13,5 +13,6 @@ web/node_modules/
 web/node_modules-corrupt-*/
 web/vendor/
 *.tsbuildinfo
+.auteur/
 web/public/data/
 web/public/media/

@@ -49,6 +49,12 @@ At startup the launcher queries Ollama's `/api/tags` endpoint and deterministica
 
 `GET /api/models/roles` returns discovered metadata and ranked candidates. `POST /api/models/refresh` re-runs discovery. Cloud-backed Ollama entries are excluded from automatic local routing, and creators retain manual model override in the UI.
 
+## Crash-Safe State Recovery
+
+AUTEUR continuously snapshots the project and active workspace into IndexedDB. The snapshot includes selected scene and shot, workspace mode, inspector state, prompt tab, command draft, preview playhead, and storyboard-preview state. On startup, malformed records are ignored and the newest valid snapshot is restored automatically.
+
+The offline launcher additionally mirrors snapshots to `.auteur/state/active-session.json` through a same-origin-only local endpoint. Writes use a temporary file plus atomic rename, so a process crash cannot leave a half-written recovery file. Existing localStorage projects are migrated into IndexedDB on first load.
+
 ## Development
 
 ```powershell

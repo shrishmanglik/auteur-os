@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
+import { PersistenceBridge } from "../../src/PersistenceBridge";
 
 const AuteurStudio = dynamic(() => import("../../src/AppV2").then((module) => module.AppV2), {
   ssr: false,
@@ -14,5 +15,5 @@ export default function StudioClient() {
       navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     }
   }, []);
-  return <AuteurStudio />;
+  return <PersistenceBridge><AuteurStudio /></PersistenceBridge>;
 }
