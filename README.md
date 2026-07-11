@@ -14,6 +14,29 @@ npm run build:offline
 
 The launcher serves the self-contained offline application through a loopback-only HTTP server and proxies local Ollama requests. Opening `AUTEUR-Studio.html` directly is not the supported intelligence path because browsers block local-model requests from a `file://` origin.
 
+## MCP Server Registry
+
+The launcher also exposes a local MCP registry. Configure servers in `mcp-servers.json`:
+
+```json
+{
+  "servers": [
+    {
+      "id": "local-tools",
+      "name": "Local creative tools",
+      "transport": "streamable-http",
+      "url": "http://127.0.0.1:7331/mcp"
+    }
+  ]
+}
+```
+
+- `GET /api/mcp/servers` returns sanitized registry metadata.
+- `/mcp/{id}` forwards MCP HTTP and Streamable HTTP requests.
+- Remote endpoints are rejected unless the entry sets `"allowRemote": true`.
+- Secret headers can reference environment variables through `headersFromEnv`; secret values are never returned by the registry.
+- Stdio execution is intentionally disabled because arbitrary child-process launch is outside the current security boundary.
+
 ## Development
 
 ```powershell
