@@ -56,6 +56,17 @@ npm run dev
 npm run check
 ```
 
+## Web Runtime
+
+The same editor and intelligence core also run as a Next.js web application:
+
+```powershell
+npm --prefix web install
+npm run dev:web
+```
+
+Production commands are `npm run build:web` and `npm run start:web`. The web runtime includes App Router metadata, installable PWA support, a health endpoint, corpus/media synchronization, server-side model-role discovery, and a restricted Ollama proxy. Set `AUTEUR_OLLAMA_URL` to a private Ollama-compatible gateway in hosted environments. Without it, the web product remains usable in deterministic/local-persistence mode and reports model execution as unavailable rather than fabricating provider state.
+
 ## Current Evidence Boundary
 
 - The bundled intelligence data contains corpus-derived prompt and rendered-output findings.

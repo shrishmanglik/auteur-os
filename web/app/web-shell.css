@@ -1,0 +1,10 @@
+:root { color-scheme: dark; background: #090a0c; }
+* { box-sizing: border-box; }
+html, body { min-height: 100%; margin: 0; background: #090a0c; }
+body { min-width: 320px; }
+.web-boot { display: grid; place-content: center; justify-items: center; gap: 10px; min-height: 100vh; color: #f4f1e8; font-family: Arial, sans-serif; }
+.web-boot span { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #d7aa4f; color: #d7aa4f; font: 700 20px Georgia, serif; }
+.web-boot strong { font-size: 14px; }
+.web-boot small { color: #888b91; font-size: 11px; }
+.v2-sidebar-foot small { font-size: 0; }
+.v2-sidebar-foot small::after { content: "Web + local workspace"; font-size: 9px; }
