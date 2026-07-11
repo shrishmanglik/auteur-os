@@ -1,0 +1,15 @@
+.git/
+.npm-cache/
+.playwright-cli/
+node_modules/
+web/node_modules/
+web/node_modules-corrupt-*/
+web/.next/
+web/vendor/
+dist/
+output/
+design/
+AUTEUR-Studio.html
+AUTEUR-Studio-legacy.html
+*.log
+*.tsbuildinfo
