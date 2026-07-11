@@ -7,7 +7,7 @@ import {
 import { deriveCorpusGuidance, embedPacketMedia, exportPacket } from "./engine.mjs";
 import { DIRECTOR_FORMATS, developBlueprint, ideateConcepts, writeScreenplay } from "./director.mjs";
 import type { DirectorConcept, DirectorInput, ScreenplayScene } from "./director.mjs";
-import { analyzeProductionBrief, probeLocalBrain, refineShotDirection } from "./intelligence";
+import { analyzeProductionBrief, discoverLocalModelRoles, refineShotDirection } from "./intelligence";
 import { useStudio } from "./store";
 import type { Project, Shot, WorkspaceMode } from "./types";
 import "./styles-v2.css";
@@ -501,9 +501,12 @@ export function AppV2() {
         setCorpusIntelligence(brain.failure_rules || [], { ...deltas, render_records: brain.coverage?.analyzed, prompt_brain: promptBrain });
       }).catch(() => setIntelligenceStatus("unavailable"));
     }
-    probeLocalBrain({ timeoutMs: 12_000, preferredModel: "qwen3.6:latest" }).then((probe) => {
-      const preferred = ["gemma4:latest", "llama3.1:8b", "qwen2.5vl:3b"].find((candidate) => probe.models.includes(candidate)) || probe.model || "";
-      setBrainState({ brainStatus: probe.available ? "ready" : "offline", brainModel: preferred, brainModels: probe.models, analysisStage: probe.available ? "Local creative intelligence ready" : probe.error || "Local brain unavailable" });
+    discoverLocalModelRoles({ timeoutMs: 12_000 }).then((probe) => {
+      const preferred = probe.roles.creativeDirector?.selected || probe.roles.screenplay?.selected || probe.model || "";
+      const routeSummary = probe.roles.screenplay?.selected && probe.roles.promptPacket?.selected
+        ? `Auto-routed: screenplay ${probe.roles.screenplay.selected}; prompt packets ${probe.roles.promptPacket.selected}`
+        : "Local creative intelligence ready";
+      setBrainState({ brainStatus: probe.available ? "ready" : "offline", brainModel: preferred, brainModels: probe.models, analysisStage: probe.available ? routeSummary : probe.error || "Local brain unavailable" });
     });
   }, [setBrainState, setCorpusIntelligence, setIntelligenceStatus]);
   return <div className={`v2-shell mode-${mode}`}><TopBar /><SideNav /><main className="v2-main"><Workspace /></main>{mode === "storyboard" && <Inspector />}<NewProductionDialog /><Notice /><div className="v2-source-truth">{project.intelligenceSource === "ollama" ? `AI-authored / ${project.intelligenceModel}` : "Deterministic draft / local brain not used"}</div></div>;

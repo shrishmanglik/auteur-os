@@ -37,6 +37,18 @@ The launcher also exposes a local MCP registry. Configure servers in `mcp-server
 - Secret headers can reference environment variables through `headersFromEnv`; secret values are never returned by the registry.
 - Stdio execution is intentionally disabled because arbitrary child-process launch is outside the current security boundary.
 
+## Local Model Routing
+
+At startup the launcher queries Ollama's `/api/tags` endpoint and deterministically maps local models to five roles:
+
+- `fastDraft`: low-latency ideation.
+- `screenplay`: treatment, dialogue, and screenplay writing, preferring capable models near 8B parameters.
+- `promptPacket`: dense structured packet generation, preferring larger general models and quantized equivalents.
+- `creativeDirector`: highest-quality general production reasoning.
+- `vision`: reference-image and storyboard-frame analysis.
+
+`GET /api/models/roles` returns discovered metadata and ranked candidates. `POST /api/models/refresh` re-runs discovery. Cloud-backed Ollama entries are excluded from automatic local routing, and creators retain manual model override in the UI.
+
 ## Development
 
 ```powershell

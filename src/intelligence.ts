@@ -83,6 +83,10 @@ export interface LocalBrainProbe {
   error: string | null;
 }
 
+export interface ModelRoleDiscovery extends LocalBrainProbe {
+  roles: Record<string, { purpose: string; selected: string | null; candidates: string[] }>;
+}
+
 export interface BlueprintProject {
   title: string;
   logline: string;
@@ -414,6 +418,26 @@ export async function probeLocalBrain(options: ProbeLocalBrainOptions = {}): Pro
     return { available: Boolean(model), models, model, error: model ? null : "No local Ollama models are installed." };
   } catch (error) {
     return { available: false, models: [], model: null, error: errorMessage(error) };
+  }
+}
+
+export async function discoverLocalModelRoles(options: ProbeLocalBrainOptions = {}): Promise<ModelRoleDiscovery> {
+  const fetcher = options.fetcher ?? globalThis.fetch;
+  try {
+    const response = await fetchWithTimeout(fetcher, "/api/models/roles", { method: "GET", headers: { Accept: "application/json" } }, options.timeoutMs ?? DEFAULT_TIMEOUT_MS, options.signal);
+    if (!response.ok) throw new Error(`Model role discovery failed with HTTP ${response.status}.`);
+    const body = await response.json() as unknown;
+    if (!isRecord(body) || !Array.isArray(body.models) || !isRecord(body.roles)) throw new Error("Model role discovery returned an invalid payload.");
+    const models = body.models.map((model) => isRecord(model) ? cleanString(model.name, "") : "").filter(Boolean);
+    const roles = Object.fromEntries(Object.entries(body.roles).map(([role, value]) => {
+      const entry = isRecord(value) ? value : {};
+      return [role, { purpose: cleanString(entry.purpose, role), selected: typeof entry.selected === "string" ? entry.selected : null, candidates: stringList(entry.candidates, []) }];
+    }));
+    const selected = roles.creativeDirector?.selected || roles.screenplay?.selected || models[0] || null;
+    return { available: Boolean(selected), models, model: selected, roles, error: typeof body.error === "string" ? body.error : null };
+  } catch {
+    const fallback = await probeLocalBrain(options);
+    return { ...fallback, roles: {} };
   }
 }
 
