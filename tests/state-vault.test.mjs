@@ -35,6 +35,10 @@ test("state vault rejects malformed snapshots and foreign origins", async (conte
   context.after(() => server.close());
   const address = server.address();
   const url = `http://127.0.0.1:${address.port}/api/state/snapshot`;
+  const empty = await fetch(url);
+  assert.equal(empty.status, 200);
+  assert.equal(empty.headers.get("X-Auteur-State-Vault"), "1");
+  assert.equal(await empty.json(), null);
   assert.equal((await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: "{}" })).status, 400);
   assert.equal((await fetch(url, { headers: { Origin: "https://malicious.example" } })).status, 403);
 });

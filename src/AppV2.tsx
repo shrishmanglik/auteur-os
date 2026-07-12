@@ -8,6 +8,7 @@ import { deriveCorpusGuidance, embedPacketMedia, exportPacket } from "./engine.m
 import { DIRECTOR_FORMATS, developBlueprint, ideateConcepts, writeScreenplay } from "./director.mjs";
 import type { DirectorConcept, DirectorInput, ScreenplayScene } from "./director.mjs";
 import { analyzeProductionBrief, discoverLocalModelRoles, refineShotDirection } from "./intelligence";
+import { productionActionFor } from "./production-flow";
 import { useStudio } from "./store";
 import type { Project, Shot, WorkspaceMode } from "./types";
 import "./styles-v2.css";
@@ -43,6 +44,11 @@ function download(name: string, content: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1200);
 }
 
+async function exportProjectPacket(project: Project, osIntelligence: ReturnType<typeof useStudio.getState>["osIntelligence"]) {
+  const portable = await embedPacketMedia(exportPacket(project, osIntelligence), toDataUrl);
+  download(`${project.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-auteur-packet.json`, JSON.stringify(portable, null, 2));
+}
+
 async function toDataUrl(url: string): Promise<string> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not embed ${url}`);
@@ -58,21 +64,13 @@ async function toDataUrl(url: string): Promise<string> {
 function BrainStatus() {
   const { brainStatus, brainModel, analysisStage } = useStudio();
   const ready = brainStatus === "ready";
-  return <div className={`v2-brain ${ready ? "ready" : brainStatus}`} title={analysisStage}><Brain size={14} weight="fill" /><span>{ready ? `Local model available / ${brainModel || "detected"}` : brainStatus === "analyzing" ? analysisStage : brainStatus === "offline" ? "Local model unavailable" : "Checking local model"}</span></div>;
+  return <div className={`v2-brain ${ready ? "ready" : brainStatus}`} title={analysisStage}><Brain size={14} weight="fill" /><span>{ready ? `Local model available / ${brainModel || "detected"}` : brainStatus === "analyzing" ? analysisStage : brainStatus === "offline" ? "Corpus mode / model offline" : "Checking local model"}</span></div>;
 }
 
 function TopBar() {
-  const { project, mode, osIntelligence, setMode, setNewProjectOpen, setNotice } = useStudio();
-  const exportProject = async () => {
-    try {
-      const portable = await embedPacketMedia(exportPacket(project, osIntelligence), toDataUrl);
-      download(`${project.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-auteur-packet.json`, JSON.stringify(portable, null, 2));
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Export failed.");
-    }
-  };
+  const { project, mode, setMode, setNewProjectOpen } = useStudio();
   const atHome = mode === "home" || mode === "projects" || mode === "intelligence";
-  return <header className="v2-topbar"><button className="v2-brand" type="button" onClick={() => setMode("home")}><span>A</span><strong>AUTEUR</strong></button>{atHome ? <div className="v2-breadcrumb"><strong>{mode === "home" ? "Create" : mode === "projects" ? "Productions" : "Intelligence"}</strong></div> : <div className="v2-breadcrumb"><button type="button" onClick={() => setMode("projects")}>Productions</button><CaretRight size={12} /><strong>{project.title}</strong><CaretRight size={12} /><span>{project.format}</span></div>}<BrainStatus /><div className="v2-top-actions"><button type="button" className="v2-create-top" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> New production</button>{!atHome && <button type="button" className="v2-export" onClick={exportProject}><DownloadSimple size={17} /> Export</button>}</div></header>;
+  return <header className="v2-topbar"><button className="v2-brand" type="button" onClick={() => setMode("home")}><span>A</span><strong>AUTEUR</strong></button>{atHome ? <div className="v2-breadcrumb"><strong>{mode === "home" ? "Create" : mode === "projects" ? "Productions" : "Intelligence"}</strong></div> : <div className="v2-breadcrumb"><button type="button" onClick={() => setMode("projects")}>Productions</button><CaretRight size={12} /><strong>{project.title}</strong><CaretRight size={12} /><span>{project.format}</span></div>}<BrainStatus /><div className="v2-top-actions"><button type="button" className="v2-create-top" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> New production</button></div></header>;
 }
 
 function SideNav() {
@@ -82,7 +80,70 @@ function SideNav() {
 
 function ProjectTabs() {
   const { project, mode, setMode } = useStudio();
-  return <section className="v4-project-head"><div><button type="button" onClick={() => setMode("overview")}>{project.title}</button><span>{project.scenes.length} scenes / {project.shots.length} shots / {project.duration}s</span></div><nav aria-label="Production workspace">{productionNav.map(({ id, label, icon: Icon }) => <button type="button" key={id} className={mode === id ? "active" : ""} onClick={() => setMode(id)}><Icon size={15} /><span>{label}</span></button>)}</nav></section>;
+  const developed = project.creativeStatus === "developed";
+  return <section className="v4-project-head"><div><button type="button" onClick={() => setMode("overview")}>{project.title}</button><span>{project.scenes.length} scenes / {project.shots.length} shots / {project.duration}s</span><em className={developed ? "developed" : "draft"}>{developed ? "Developed" : "Corpus Draft"}</em></div><nav aria-label="Production workspace">{productionNav.map(({ id, label, icon: Icon }) => <button type="button" key={id} className={mode === id ? "active" : ""} onClick={() => setMode(id)}><Icon size={15} /><span>{label}</span></button>)}</nav></section>;
+}
+
+function ProductionActionBar() {
+  const { mode, osIntelligence, setMode, compileAllShots, setNotice } = useStudio();
+  const action = productionActionFor(mode);
+  if (!action) return null;
+  const run = async () => {
+    try {
+      if (action.kind === "navigate" && action.target) return setMode(action.target);
+      if (action.kind === "preflight") {
+        compileAllShots();
+        setNotice("Pre-flight complete. Every shot packet is current and ready for inspection.");
+        if (action.target) setMode(action.target);
+        return;
+      }
+      compileAllShots();
+      const state = useStudio.getState();
+      await exportProjectPacket(state.project, state.osIntelligence || osIntelligence);
+      setNotice("Prompt pack exported. No provider job was submitted.");
+    } catch (error) {
+      setNotice(`${error instanceof Error ? error.message : "Export failed."} Compile the affected shot, then try again.`);
+    }
+  };
+  return <aside className="v4-next-action" aria-label="Production next step"><span><small>Next step</small><strong>{action.detail}</strong></span><button type="button" onClick={() => void run()}>{action.label}{action.kind === "export" ? <DownloadSimple size={17} /> : <ArrowRight size={17} />}</button></aside>;
+}
+
+function DraftModelAssist() {
+  const { project, osIntelligence, brainStatus, brainModel, setBrainState, setProjectFromBlueprint, setNotice } = useStudio();
+  const [elevating, setElevating] = useState(false);
+  if (project.creativeStatus === "developed") return null;
+  const refreshModel = async () => {
+    setBrainState({ brainStatus: "checking", analysisStage: "Checking the local model host" });
+    const probe = await discoverLocalModelRoles({ timeoutMs: 12_000 });
+    const preferred = probe.roles.creativeDirector?.selected || probe.roles.screenplay?.selected || probe.model || "";
+    setBrainState({ brainStatus: probe.available ? "ready" : "offline", brainModel: preferred, brainModels: probe.models, analysisStage: probe.available ? "Local creative intelligence ready" : probe.error || "Ollama is not reachable" });
+    setNotice(probe.available ? `Local model ready: ${preferred}.` : "Ollama is still offline. Start Ollama, then check the connection again.");
+  };
+  const elevate = async () => {
+    if (brainStatus !== "ready" || elevating) return;
+    setElevating(true);
+    setBrainState({ brainStatus: "analyzing", analysisStage: "Elevating the corpus draft with the local model" });
+    try {
+      const brief = project.brief || `${project.logline}\nCreative thesis: ${project.creativeThesis}`;
+      const guidance = deriveCorpusGuidance(project, osIntelligence);
+      const blueprint = await analyzeProductionBrief({ brief, title: project.title, format: project.format, aspect: project.aspect, duration: project.duration, platform: project.platform, provider: project.provider, model: brainModel }, guidance, { timeoutMs: 180_000, onStatus: (_status, detail) => setBrainState({ analysisStage: detail }) });
+      if (blueprint.source !== "ollama") {
+        setBrainState({ brainStatus: "offline", analysisStage: "Local model disconnected during elevation" });
+        setNotice("The local model stopped responding. Your Corpus Draft is unchanged; start Ollama and try elevation again.");
+        return;
+      }
+      setProjectFromBlueprint({ ...blueprint, model: brainModel }, brief);
+      setNotice("Draft elevated and creative QC checked. Review the treatment before export.");
+    } catch (error) {
+      setBrainState({ brainStatus: "error", analysisStage: "Draft elevation failed" });
+      setNotice(`${error instanceof Error ? error.message : "Draft elevation failed."} Your Corpus Draft is unchanged; check Ollama and try again.`);
+    } finally {
+      setElevating(false);
+    }
+  };
+  return brainStatus === "ready"
+    ? <section className="v4-elevate"><span><Brain size={18} weight="fill" /><span><strong>Elevate with local model</strong><small>Rewrite and creative-QC the current draft against the same corpus rules.</small></span></span><button type="button" disabled={elevating} onClick={() => void elevate()}>{elevating ? "Elevating..." : `Elevate with ${brainModel || "local model"}`}</button></section>
+    : <section className="v4-model-remedy" role="status"><WarningCircle size={18} weight="fill" /><span><strong>Local model is offline. Your full Corpus Draft remains available.</strong><small>Start Ollama, confirm a model is installed with <code>ollama list</code>, then check the connection. No production tab is disabled.</small></span><button type="button" onClick={() => void refreshModel()}>Check connection</button></section>;
 }
 
 function StorySpine() {
@@ -235,7 +296,7 @@ function IntelligenceWorkspace() {
 function OverviewWorkspace() {
   const { project, setMode } = useStudio();
   const developed = project.creativeStatus === "developed";
-  return <div className="v2-page"><header><small>Production overview</small><h1>{project.title}</h1><p>{project.logline}</p></header><section className={`v4-creative-gate ${developed ? "passed" : "draft"}`}>{developed ? <Check size={17} weight="bold" /> : <WarningCircle size={17} weight="fill" />}<div><small>{developed ? "Creative QC passed" : "Creative draft"}</small><strong>{developed ? `${project.qualityReport?.score ?? 100}/100 brief fidelity and production completeness` : "Local creative intelligence is required before this can be called production-ready"}</strong>{project.qualityReport?.issues?.length ? <p>{project.qualityReport.issues.join(" ")}</p> : null}</div></section><section className="v2-thesis"><Sparkle size={18} weight="fill" /><div><small>Creative thesis</small><strong>{project.creativeThesis}</strong></div></section><div className="v2-overview-grid"><article><small>Treatment</small><strong>{project.scenes.length} dramatic movements</strong><p>{project.shots.length} authored shots / {project.duration}s</p><button type="button" onClick={() => setMode("story")}>Open treatment <ArrowRight size={13} /></button></article><article><small>Visual system</small><strong>{project.styleBible?.visualTone || project.style}</strong><p>{project.styleBible?.mood || project.mood}</p><button type="button" onClick={() => setMode("world")}>Open style bible <ArrowRight size={13} /></button></article><article><small>Production intelligence</small><strong>{developed ? "AI-developed and QC-checked" : "Corpus-grounded draft"}</strong><p>{project.intelligenceModel || "No model provenance"}</p></article><article><small>Provider handoff</small><strong>{project.provider}</strong><p>{project.aspect} / {project.platform}</p></article></div><StorySpine /></div>;
+  return <div className="v2-page"><header><small>Production overview</small><h1>{project.title}</h1><p>{project.logline}</p></header><section className={`v4-creative-gate ${developed ? "passed" : "draft"}`}>{developed ? <Check size={17} weight="bold" /> : <WarningCircle size={17} weight="fill" />}<div><small>{developed ? "Developed" : "Corpus Draft"}</small><strong>{developed ? `${project.qualityReport?.score ?? 100}/100 brief fidelity and production completeness` : "Complete offline production package, ready to review, edit, pre-flight, and export"}</strong>{project.qualityReport?.issues?.length ? <p>{project.qualityReport.issues.join(" ")}</p> : null}</div></section><section className="v2-thesis"><Sparkle size={18} weight="fill" /><div><small>Creative thesis</small><strong>{project.creativeThesis}</strong></div></section><div className="v2-overview-grid"><article><small>Treatment</small><strong>{project.scenes.length} dramatic movements</strong><p>{project.shots.length} authored shots / {project.duration}s</p><button type="button" onClick={() => setMode("story")}>Open treatment <ArrowRight size={13} /></button></article><article><small>Visual system</small><strong>{project.styleBible?.visualTone || project.style}</strong><p>{project.styleBible?.mood || project.mood}</p><button type="button" onClick={() => setMode("world")}>Open style bible <ArrowRight size={13} /></button></article><article><small>Production intelligence</small><strong>{developed ? "AI-developed and QC-checked" : "Corpus-grounded draft"}</strong><p>{project.intelligenceModel || "No model provenance"}</p></article><article><small>Provider handoff</small><strong>{project.provider}</strong><p>{project.aspect} / {project.platform}</p></article></div><StorySpine /></div>;
 }
 
 function StoryWorkspace() {
@@ -295,7 +356,7 @@ function Workspace() {
     : mode === "prompts" ? <PromptsWorkspace />
     : mode === "review" ? <ReviewWorkspace />
     : <StoryboardWorkspace />;
-  return <div className="v4-production-workspace"><ProjectTabs />{content}</div>;
+  return <div className="v4-production-workspace"><ProjectTabs /><DraftModelAssist />{content}<ProductionActionBar /></div>;
 }
 
 function NewProductionDialog() {

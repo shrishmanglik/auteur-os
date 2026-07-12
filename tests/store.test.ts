@@ -86,6 +86,7 @@ test("deterministic-by-choice builds keep a ready brain status; real fallback ma
   useStudio.setState({ brainStatus: "ready", brainModel: "qwen3.6:latest" });
   useStudio.getState().setProjectFromBlueprint(makeBlueprint("director-deterministic"), "chosen deterministic build");
   assert.equal(useStudio.getState().brainStatus, "ready", "opting out of the writer's room does not mark the model offline");
+  assert.equal(useStudio.getState().brainModel, "qwen3.6:latest", "the detected Ollama model is not replaced by the Director provenance label");
   useStudio.getState().setProjectFromBlueprint(makeBlueprint("deterministic-fallback"), "model actually failed");
   assert.equal(useStudio.getState().brainStatus, "offline", "a real fallback still reads offline");
 });

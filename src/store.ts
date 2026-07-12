@@ -290,7 +290,10 @@ export const useStudio = create<StudioState>((set, get) => {
       // "director-deterministic" means the user chose the deterministic Director while the
       // local model may still be ready — only an actual fallback/unavailable marks offline.
       const brainStatus = blueprint.source === "ollama" ? "ready" : blueprint.source === "director-deterministic" ? get().brainStatus : "offline";
-      set({ project, selectedShotId: project.shots[0].id, selectedSceneId: project.scenes[0].id, mode: "overview", newProjectOpen: false, newProjectPreset: null, previewing: false, playhead: 0, brainStatus, brainModel: String(blueprint.model || get().brainModel), analysisStage: developed ? "Production passed creative QC" : "Draft requires creative intelligence", notice: developed ? "Production developed: treatment, script, storyboard, continuity, sound, and prompt pack passed creative QC." : "Local creative intelligence was unavailable. A corpus-grounded draft was saved, but it is not marked production-ready." });
+      // Only Ollama-authored blueprints update the global model badge/selector;
+      // deterministic provenance labels stay on the project (intelligenceModel).
+      const brainModel = blueprint.source === "ollama" ? String(blueprint.model || get().brainModel) : get().brainModel;
+      set({ project, selectedShotId: project.shots[0].id, selectedSceneId: project.scenes[0].id, mode: "overview", newProjectOpen: false, newProjectPreset: null, previewing: false, playhead: 0, brainStatus, brainModel, analysisStage: developed ? "Production passed creative QC" : "Corpus Draft ready", notice: developed ? "Production developed: treatment, script, storyboard, continuity, sound, and prompt pack passed creative QC." : "Corpus Draft ready: every production tab is available for review, editing, pre-flight, and export." });
     },
     updateShot: (shotId, patch) => set((state) => {
       const project = { ...state.project, shots: state.project.shots.map((shot) => shot.id === shotId ? { ...shot, ...patch, packetDirty: true } : shot), updatedAt: new Date().toISOString() };

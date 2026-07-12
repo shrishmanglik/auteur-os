@@ -5,7 +5,7 @@ import { isTrustedMcpRequest } from "./mcp-registry.mjs";
 const MAX_BYTES = 25 * 1024 * 1024;
 
 function json(response, status, body) {
-  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Auteur-State-Vault": "1" });
   response.end(JSON.stringify(body));
 }
 
@@ -27,7 +27,7 @@ export function createStateVault(path) {
     if (!isTrustedMcpRequest(request)) { json(response, 403, { error: "State snapshots are available only to this AUTEUR runtime." }); return true; }
     if (request.method === "GET") {
       try { json(response, 200, JSON.parse(await readFile(path, "utf8"))); }
-      catch (error) { json(response, error?.code === "ENOENT" ? 404 : 500, { error: error?.code === "ENOENT" ? "No local snapshot exists." : "Local snapshot could not be read." }); }
+      catch (error) { json(response, error?.code === "ENOENT" ? 200 : 500, error?.code === "ENOENT" ? null : { error: "Local snapshot could not be read." }); }
       return true;
     }
     if (request.method === "PUT") {
