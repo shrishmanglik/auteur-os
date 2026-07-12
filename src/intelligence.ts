@@ -479,7 +479,7 @@ function promptFor(input: ProductionBriefInput, corpusGuidance: CorpusGuidance):
     "- Every shot must earn its place with one observable action, physical world logic (weight, contact, light), and a held end state.",
     "- Every shot must be causally different from the previous shot. Never repeat scene intent as shot action. Name the subject, place, behavior, material, and consequence actually visible.",
     "- The screenplay needs a specific want, obstacle, turn, and irreversible final image. Ads dramatize a product truth instead of decorating a pack shot. A-roll makes one defensible argument with concrete proof.",
-    "- If the brief requests no dialogue or no voice-over, every dialogue field must be empty. If it requests one actor, create exactly one character asset and no second visible character.",
+    "- If the brief requests no dialogue (or is explicitly silent), every dialogue field must be empty. If it bans only voice-over, write no narration or V.O. lines but keep diegetic spoken dialogue between characters. If it requests one actor, create exactly one character asset and no second visible character.",
     "- Describe matter and light the way the gold reference does: physically, specifically, 'more real than real'. Ban filler adjectives (beautiful, stunning, amazing, epic).",
     "- Do not use a fixed, preset, default, minimum, or maximum scene count or shot count. Infer structure from the story.",
     "- The shot field `dialogue` carries verbatim spoken lines for that shot (screenplay-formatted), or an empty string.",
@@ -493,11 +493,15 @@ function promptFor(input: ProductionBriefInput, corpusGuidance: CorpusGuidance):
 }
 
 export function evaluateBlueprintAgainstBrief(blueprint: ProductionBlueprint, brief: string): { score: number; issues: string[]; passed: boolean } {
-  const constraints = extractBriefConstraints(brief) as { noDialogue?: boolean; actorCount?: number | null; oneLocation?: boolean; loopable?: boolean };
+  const constraints = extractBriefConstraints(brief) as { noDialogue?: boolean; noVoiceover?: boolean; actorCount?: number | null; oneLocation?: boolean; loopable?: boolean };
   const issues: string[] = [];
   const shots = blueprint.scenes.flatMap((scene) => scene.shots);
   const characterAssets = blueprint.assets.filter((asset) => /character|cast|person/i.test(asset.type));
-  if (constraints.noDialogue && shots.some((shot) => shot.dialogue.trim())) issues.push("The brief forbids dialogue or voice-over, but spoken lines were authored.");
+  if (constraints.noDialogue && shots.some((shot) => shot.dialogue.trim())) issues.push("The brief forbids dialogue, but spoken lines were authored.");
+  // Matches any speaker label carrying a narration marker: "V.O.:", "VO:", "VOICEOVER:",
+  // "NARRATOR:", "NARRATION:", and character-attributed forms like "MARA (V.O.):".
+  const voiceOverLine = /(?:^|\n)\s*(?:[A-Z][A-Z .'-]{0,40}[\s(])?\(?\s*(?:V\.?\s?O\.?|VOICE[ -]?OVER|NARRATOR|NARRATION)\s*\)?\s*:/i;
+  if (!constraints.noDialogue && constraints.noVoiceover && shots.some((shot) => voiceOverLine.test(shot.dialogue))) issues.push("The brief forbids voice-over narration, but V.O./narrator lines were authored.");
   if (constraints.actorCount && characterAssets.length !== constraints.actorCount) issues.push(`The brief requires exactly ${constraints.actorCount} visible actor(s); the blueprint defines ${characterAssets.length}.`);
   if (constraints.oneLocation) {
     const locations = new Set(blueprint.scenes.map((scene) => scene.slugline.replace(/\s+-\s+(DAY|NIGHT|CONTINUOUS|DUSK|DAWN).*$/i, "").trim()));

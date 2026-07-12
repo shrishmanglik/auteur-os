@@ -64,8 +64,10 @@ export function extractBriefConstraints(idea) {
   const actorWords = { one: 1, "1": 1, two: 2, "2": 2, three: 3, "3": 3 };
   const actorCount = actorMatch ? actorWords[actorMatch[1]] : null;
   return {
-    noDialogue: /\b(?:no dialogue|without dialogue|silent film|no spoken words|no voiceover|no voice-over|no vo)\b/.test(lower),
-    noVoiceover: /\b(?:no voiceover|no voice-over|no vo|no dialogue\s+(?:or|and)\s+voice-?over)\b/.test(lower),
+    // A voice-over ban ("no/without voiceover/narration") bans narration only —
+    // diegetic dialogue stays legal unless the brief is explicitly silent/dialogue-free.
+    noDialogue: /\b(?:no|without)\s+(?:any\s+)?(?:dialog(?:ue)?s?|talking|spoken words)\b|\b(?:dialog(?:ue)?-free|silent film|completely silent)\b/.test(lower),
+    noVoiceover: /\b(?:no|without)\s+(?:any\s+)?(?:voice[- ]?overs?|vo|narration|spoken words)\b|\bnarration-free\b|\b(?:no|without)\s+dialog(?:ue)?s?\s+(?:or|and)\s+voice[- ]?over|\b(?:silent film|completely silent)\b/.test(lower),
     actorCount,
     oneLocation: /\b(?:one|single|1)\s+location\b/.test(lower),
     loopable: /\b(?:loopable|seamless loop|loops? back)\b/.test(lower),
@@ -76,10 +78,10 @@ export function extractBriefConstraints(idea) {
 
 export function detectRoute(text) {
   const lower = String(text).toLowerCase();
-  if (/\b(car|vehicle|automotive|suv|motorcycle|supercar|road|drive)\b/.test(lower)) return "automotive";
+  if (/\b(car|vehicle|automotive|sedan|suv|motorcycle|supercar|road|drive)\b/.test(lower)) return "automotive";
   if (/\b(food|coffee|drink|beverage|restaurant|chef|dish|recipe|kitchen|whisky|cocktail)\b/.test(lower)) return "food";
   if (/\b(watch|product|perfume|jewel|appliance|packshot|device|bottle|shoe|sneaker|serum)\b/.test(lower)) return "product";
-  if (/\b(vfx|giant|surreal|fantasy|creature|spaceship|transform|morph|supernatural)\b/.test(lower)) return "vfx";
+  if (/\b(vfx|giant|surreal|fantasy|creature|spaceship|explosion|transform|morph|supernatural)\b/.test(lower)) return "vfx";
   if (/\b(music|fashion|artist|performer|dance|editorial|beauty|runway)\b/.test(lower)) return "editorial";
   if (/\b(landscape|mountain|ocean|forest|nature|wildlife|desert)\b/.test(lower)) return "nature";
   return "character";

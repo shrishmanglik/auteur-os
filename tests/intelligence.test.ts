@@ -97,6 +97,21 @@ test("creative QC rejects generic, constraint-breaking blueprints", () => {
   assert.ok(report.issues.some((issue) => /template language/i.test(issue)));
 });
 
+test("no-voiceover QC catches every narration marker but keeps diegetic dialogue", () => {
+  const brief = "Two actors argue in a diner. No voiceover.";
+  const flaggedForms = ["NARRATOR: They were never really arguing.", "VOICEOVER: Somewhere, a kettle boiled.", "MARA (V.O.): I never told him.", "VO: The city kept moving."];
+  for (const line of flaggedForms) {
+    const blueprint = parseProductionBlueprintResponse(JSON.stringify(rawBlueprint([1])));
+    blueprint.scenes[0].shots[0].dialogue = line;
+    const report = evaluateBlueprintAgainstBrief(blueprint, brief);
+    assert.ok(report.issues.some((issue) => /voice-over narration/i.test(issue)), `flags: ${line}`);
+  }
+  const diegetic = parseProductionBlueprintResponse(JSON.stringify(rawBlueprint([1])));
+  diegetic.scenes[0].shots[0].dialogue = "MARA: You always order for me.\nBRAVO: Somebody has to.";
+  const report = evaluateBlueprintAgainstBrief(diegetic, brief);
+  assert.ok(!report.issues.some((issue) => /voice-over/i.test(issue)), "diegetic dialogue (even a speaker named BRAVO) stays legal");
+});
+
 test("extracts a production blueprint from fenced response text", () => {
   const response = `Model preface\n\`\`\`json\n${JSON.stringify(rawBlueprint())}\n\`\`\`\nDone.`;
   const blueprint = parseProductionBlueprintResponse(response);

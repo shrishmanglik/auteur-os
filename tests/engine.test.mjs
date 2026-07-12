@@ -336,6 +336,18 @@ test("regenerates duplicate model-supplied shot and scene ids", () => {
   assert.doesNotThrow(() => exportPacket(project), "the production exports instead of being blocked on duplicate ids");
 });
 
+test("image frame targets are capped so runaway values cannot pad unbounded packets", () => {
+  const blueprint = {
+    source: "ollama",
+    model: "test-model",
+    project: { title: "Runaway frames", duration: 1800, format: "Image campaign", aspect: "4:5", provider: "Image model" },
+    scenes: [{ title: "Set", shots: [{ title: "A" }, { title: "B" }] }],
+  };
+  const project = createProjectFromBlueprint(blueprint, { brief: "A campaign with an accidental huge frame count." });
+  assert.equal(project.shots.length, 24, "frame padding caps at the director bound");
+  assert.equal(project.deliverables[0].duration, 24);
+});
+
 test("regenerates duplicate model-supplied asset ids", () => {
   const blueprint = {
     source: "ollama",
@@ -483,6 +495,34 @@ test("rejects unrelated product subdomains instead of contaminating a new brief"
 test("does not route ordinary words containing car into automotive", () => {
   assert.equal(detectProjectRoute("A sculptor carries a perfume bottle into first light"), "product");
   assert.equal(detectProjectRoute("A performer carries a letter into the theatre"), "editorial");
+});
+
+test("auto-router recognizes the Director's product vocabulary", () => {
+  assert.equal(detectProjectRoute("A sneaker drop shot on wet asphalt"), "product");
+  assert.equal(detectProjectRoute("A vitamin serum campaign in morning light"), "product");
+  assert.equal(detectProjectRoute("A single-malt whisky pour by firelight"), "food");
+});
+
+test("nature briefs route to the nature playbook instead of character", () => {
+  assert.equal(detectProjectRoute("A mountain wildlife film at dawn"), "nature");
+  assert.equal(detectProjectRoute("A desert landscape image campaign"), "nature");
+  const project = createProjectFromBrief("A mountain wildlife film at dawn", { title: "Ridge" });
+  assert.equal(project.shots[0].contentType, "nature");
+  assert.ok(project.shots.length >= 3, "nature playbook builds a full production");
+  const guidance = deriveCorpusGuidance(project, null);
+  assert.match(guidance.storyPattern, /vast establishment/i, "nature guidance defaults apply");
+});
+
+test("corpus route hits match whole tokens, not substrings", () => {
+  const intelligence = {
+    prompt_generation_logic: [
+      { key: "business-card-layout-rule", count: 40, examples: [{ rule: "CARD RULE: flat lay the card stationery." }] },
+      { key: "automotive-hero-move", count: 3, examples: [{ rule: "AUTO RULE: prove tire contact under load." }] },
+    ],
+  };
+  const project = createProjectFromBrief("A supercar launch film on a coastal road", { title: "Apex" });
+  const guidance = deriveCorpusGuidance(project, intelligence);
+  assert.doesNotMatch(guidance.promptRule, /CARD RULE/, "'business-card-layout' is not a car hit");
 });
 
 test("unlocked references are excluded from compiled continuity", () => {
