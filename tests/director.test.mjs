@@ -39,6 +39,32 @@ test("brief constraints prevent forbidden speech and extra cast in the offline d
   assert.equal(new Set(screenplay.scenes.map((scene) => scene.slugline)).size, 1);
 });
 
+test("a voice-over ban does not silence diegetic dialogue", () => {
+  const banned = extractBriefConstraints("Two old friends argue in a diner. No voiceover.");
+  assert.equal(banned.noVoiceover, true);
+  assert.equal(banned.noDialogue, false, "'no voiceover' must not ban spoken dialogue");
+  const silent = extractBriefConstraints("A silent film about a lighthouse keeper.");
+  assert.equal(silent.noDialogue, true);
+  assert.equal(silent.noVoiceover, true);
+  const without = extractBriefConstraints("A launch trailer without voiceover, driven by sound design.");
+  assert.equal(without.noVoiceover, true, "'without voiceover' bans narration");
+  assert.equal(without.noDialogue, false);
+  assert.equal(extractBriefConstraints("A montage without narration.").noVoiceover, true);
+  assert.equal(extractBriefConstraints("A commercial with no voice over.").noVoiceover, true, "spaced 'voice over' counts");
+  const usSpelling = extractBriefConstraints("A tense single scene, no dialog.");
+  assert.equal(usSpelling.noDialogue, true, "US 'dialog' spelling counts");
+  assert.equal(extractBriefConstraints("A short with no dialog or voice over.").noVoiceover, true, "spaced compound ban counts");
+  const trailerInput = { ...INPUT, idea: "A heist movie launch trailer without voiceover.", format: "Trailer", duration: 40 };
+  const trailerConcept = ideateConcepts(trailerInput, 0)[0];
+  const trailer = writeScreenplay(trailerInput, trailerConcept, 0);
+  assert.ok(trailer.scenes.every((scene) => !/V\.O\.:/.test(scene.dialogue)), "trailer emits no V.O. lines under a without-voiceover ban");
+  const input = { ...INPUT, idea: "Two retired safecrackers argue over the last espresso. No voiceover.", format: "Short film sequence" };
+  const concept = ideateConcepts(input, 0)[0];
+  const screenplay = writeScreenplay(input, concept, 0);
+  assert.equal(screenplay.dialogueMode, "dialogue");
+  assert.ok(screenplay.scenes.some((scene) => scene.dialogue.includes(":")), "dialogue survives a VO-only ban");
+});
+
 test("detectRoute matches whole words, never substrings", () => {
   assert.notEqual(detectRoute("she carries the box carefully to the door"), "automotive", "'carries' is not a car");
   assert.notEqual(detectRoute("a card trick at a birthday party"), "automotive", "'card' is not a car");

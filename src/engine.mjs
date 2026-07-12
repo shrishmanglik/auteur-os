@@ -63,6 +63,7 @@ const routeTerms = {
   character: ["character", "human", "portrait", "dialogue", "identity", "performance"],
   editorial: ["fashion", "music", "editorial", "beauty", "performer", "dance"],
   vfx: ["vfx", "surreal", "spectacle", "creature", "transformation", "phenomenon"],
+  nature: ["nature", "landscape", "wildlife", "mountain", "ocean", "forest", "desert"],
 };
 
 const contextStopTerms = new Set([
@@ -87,16 +88,21 @@ function textValues(value) {
 
 function pickIntelligence(items, project, route) {
   const context = `${project.brief} ${project.format} ${project.style} ${project.mood}`.toLowerCase();
-  const projectTerms = [...new Set(context.split(/[^a-z0-9]+/).filter((word) => word.length > 4 && !contextStopTerms.has(word)))];
+  const contextTokens = new Set(context.split(/[^a-z0-9]+/).filter(Boolean));
+  const projectTerms = [...contextTokens].filter((word) => word.length > 4 && !contextStopTerms.has(word));
   const ranked = [...(items || [])].map((item) => {
     const haystack = `${item.key || ""} ${textValues(exampleOf(item)).join(" ")}`.toLowerCase();
-    const routeHits = (routeTerms[route] || []).filter((term) => haystack.includes(term)).length;
+    // Whole-token matching (with a simple plural) — substring hits let keys like
+    // "business-card-layout" count as a "car" hit and contaminate route guidance.
+    const haystackTokens = new Set(haystack.split(/[^a-z0-9]+/).filter(Boolean));
+    const hasToken = (term) => haystackTokens.has(term) || haystackTokens.has(`${term}s`);
+    const routeHits = (routeTerms[route] || []).filter(hasToken).length;
     const conflictingHits = Object.entries(routeTerms)
       .filter(([candidate]) => candidate !== route)
-      .reduce((sum, [, terms]) => sum + terms.filter((term) => haystack.includes(term)).length, 0);
-    const projectHits = projectTerms.filter((term) => haystack.includes(term)).length;
+      .reduce((sum, [, terms]) => sum + terms.filter(hasToken).length, 0);
+    const projectHits = projectTerms.filter(hasToken).length;
     const routeAnchors = routeTerms[route] || [];
-    const anchorConflicts = subjectAnchors.filter((term) => haystack.includes(term) && !context.includes(term) && !routeAnchors.includes(term)).length;
+    const anchorConflicts = subjectAnchors.filter((term) => hasToken(term) && !contextTokens.has(term) && !contextTokens.has(`${term}s`) && !routeAnchors.includes(term)).length;
     const score = routeHits * 80 + projectHits * 18 + Math.min(Number(item.count) || 0, 10) - conflictingHits * 40 - anchorConflicts * 140;
     return { item, score, routeHits, projectHits, conflictingHits, anchorConflicts };
   }).sort((left, right) => right.score - left.score || String(left.item.key).localeCompare(String(right.item.key)));
@@ -137,6 +143,11 @@ const routeGuidanceDefaults = {
     storyPattern: "normal world -> anomaly -> causal escalation -> consequence -> resolved spectacle",
     storyBeats: ["establish scale", "introduce anomaly", "show physical response", "resolve force and geography"],
     domainPlaybook: "baseline reality -> force source -> material response -> human consequence -> stable spectacle frame",
+  },
+  nature: {
+    storyPattern: "vast establishment -> living detail -> environmental event -> settled grandeur",
+    storyBeats: ["establish scale and light", "isolate one living or geological detail", "show weather or behavior in motion", "resolve on the landscape's defining image"],
+    domainPlaybook: "scale statement -> intimate natural detail -> atmospheric or behavioral event -> held panoramic resolution",
   },
 };
 
@@ -411,6 +422,23 @@ const routePlaybooks = {
     worldRule: "The impossible event obeys a consistent scale and force model; environment, particles, water, light, and witnesses respond causally.",
     audio: "scale-appropriate low frequency, environmental response, witness perspective, and sparse tension score",
   },
+  nature: {
+    media: "apex",
+    contentType: "nature",
+    scenes: [["Scale", "Establish the landscape's geography, light, and vastness."], ["Life", "Reveal living or elemental detail moving inside the world."], ["Grandeur", "Resolve weather, light, and terrain into one defining image."]],
+    shots: [
+      ["Vast establishment", "The landscape's full scale and light condition are read in one composition", "Slow aerial drift", "24mm environmental wide", "Environmental wide"],
+      ["Geological texture", "Rock, water, ice, or sand texture proves the terrain's material truth", "Locked observation", "100mm macro", "Detail close-up"],
+      ["Living detail", "One animal, plant, or elemental motion animates the stillness", "Patient tracking follow", "200mm telephoto", "Wildlife medium"],
+      ["Weather event", "Light, wind, fog, or water visibly changes the landscape's state", "Measured crane rise", "35mm atmospheric wide", "Environmental wide"],
+      ["Intimate consequence", "A close natural detail carries the event's aftermath", "Short parallax slide", "85mm intimate", "Detail close-up"],
+      ["Defining panorama", "Terrain, light, and atmosphere settle into the signature final image", "Slow release and hold", "28mm panoramic", "Hero wide"],
+    ],
+    assets: [["Primary terrain", "location", 1], ["Light condition", "style", 4], ["Living subject", "object", 3]],
+    locks: ["geography and horizon", "light direction and weather state", "species or subject identity", "seasonal continuity"],
+    worldRule: "Geography, horizon, light direction, weather, and any living subject remain continuous; nature behaves with documentary physical credibility.",
+    audio: "wind, water, and habitat ambience bound to visible sources, distant fauna, and restrained score under natural sound",
+  },
 };
 
 export function detectProjectRoute(brief, options = {}) {
@@ -421,14 +449,18 @@ export function detectProjectRoute(brief, options = {}) {
     if (requested.includes("food")) return "food";
     if (requested.includes("vfx")) return "vfx";
     if (requested.includes("music") || requested.includes("fashion") || requested.includes("editorial")) return "editorial";
+    if (requested.includes("nature") || requested.includes("landscape") || requested.includes("wildlife")) return "nature";
     if (requested.includes("character") || requested.includes("narrative")) return "character";
   }
+  // Vocabulary is the union of this router and the Director's detectRoute —
+  // keep both in sync so brief nouns land on the same playbook everywhere.
   const text = `${brief || ""} ${options.format || ""} ${options.style || ""}`.toLowerCase();
-  if (/\b(car|vehicle|automotive|sedan|suv|motorcycle|supercar|road)\b/.test(text)) return "automotive";
-  if (/\b(food|coffee|drink|beverage|restaurant|chef|dish|recipe|kitchen)\b/.test(text)) return "food";
-  if (/\b(watch|product|perfume|jewel|appliance|packshot|device|bottle|shoe)\b/.test(text)) return "product";
-  if (/\b(vfx|giant|surreal|fantasy|creature|spaceship|explosion|supernatural)\b/.test(text)) return "vfx";
-  if (/\b(music|fashion|artist|performer|dance|editorial|beauty)\b/.test(text)) return "editorial";
+  if (/\b(car|vehicle|automotive|sedan|suv|motorcycle|supercar|road|drive)\b/.test(text)) return "automotive";
+  if (/\b(food|coffee|drink|beverage|restaurant|chef|dish|recipe|kitchen|whisky|cocktail)\b/.test(text)) return "food";
+  if (/\b(watch|product|perfume|jewel|appliance|packshot|device|bottle|shoe|sneaker|serum)\b/.test(text)) return "product";
+  if (/\b(vfx|giant|surreal|fantasy|creature|spaceship|explosion|transform|morph|supernatural)\b/.test(text)) return "vfx";
+  if (/\b(music|fashion|artist|performer|dance|editorial|beauty|runway)\b/.test(text)) return "editorial";
+  if (/\b(landscape|mountain|ocean|forest|nature|wildlife|desert)\b/.test(text)) return "nature";
   return "character";
 }
 
@@ -636,7 +668,9 @@ export function createProjectFromBlueprint(blueprint, options = {}) {
   const frameNotes = [];
   if (imageSequence) {
     shots.forEach((shot) => { shot.duration = 1; });
-    const requestedFrames = Math.round(Number(blueprintProject.duration || options.duration) || 0);
+    // Cap matches the director format's frame bound — an unbounded target would pad
+    // (and compile a packet for) one shot per frame and can freeze the browser.
+    const requestedFrames = Math.min(24, Math.round(Number(blueprintProject.duration || options.duration) || 0));
     if (requestedFrames > 0 && shots.length && requestedFrames !== shots.length) {
       frameNotes.push(`Frame count adjusted to the requested ${requestedFrames} frames (blueprint authored ${shots.length}).`);
       if (shots.length > requestedFrames) {
