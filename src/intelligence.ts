@@ -1,6 +1,7 @@
 import type { CorpusGuidance } from "./types";
 import type { Project, Shot } from "./types";
 import { detectRoute, developBlueprint, extractBriefConstraints, ideateConcepts, routeToContentType } from "./director.mjs";
+import type { DirectorConcept, DirectorInput } from "./director.mjs";
 
 const runtimeGlobals = globalThis as typeof globalThis & { __AUTEUR_OLLAMA_BASE__?: string };
 const ollamaBase = runtimeGlobals.__AUTEUR_OLLAMA_BASE__ || "/ollama";
@@ -9,6 +10,15 @@ const CHAT_ENDPOINT = `${ollamaBase}/api/chat`;
 const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_MODEL_PREFERENCES = ["gemma4:latest", "llama3.1:8b", "qwen2.5vl:3b", "qwen3"];
 const STRING_ARRAY_SCHEMA = { type: "array", items: { type: "string" } } as const;
+const CONCEPT_SCHEMA = {
+  type: "object",
+  required: ["concepts"],
+  properties: {
+    concepts: { type: "array", minItems: 3, maxItems: 3, items: { type: "object", required: ["lens", "name", "logline", "twist", "humor", "thesis", "tone", "mood"], properties: {
+      lens: { type: "string" }, name: { type: "string" }, logline: { type: "string" }, twist: { type: "string" }, humor: { type: "string" }, thesis: { type: "string" }, tone: { type: "string" }, mood: { type: "string" },
+    } } },
+  },
+} as const;
 const BLUEPRINT_SCHEMA = {
   type: "object",
   required: ["project", "styleBible", "storyBeats", "scenes", "assets"],
@@ -85,6 +95,13 @@ export interface LocalBrainProbe {
 
 export interface ModelRoleDiscovery extends LocalBrainProbe {
   roles: Record<string, { purpose: string; selected: string | null; candidates: string[] }>;
+}
+
+export interface ConceptIdeationResult {
+  source: "ollama" | "deterministic-fallback";
+  model: string | null;
+  concepts: DirectorConcept[];
+  fallbackReason: string | null;
 }
 
 export interface BlueprintProject {
@@ -438,6 +455,66 @@ export async function discoverLocalModelRoles(options: ProbeLocalBrainOptions = 
   } catch {
     const fallback = await probeLocalBrain(options);
     return { ...fallback, roles: {} };
+  }
+}
+
+function parseConceptResponse(responseText: string): DirectorConcept[] {
+  const parsed = extractJson(responseText);
+  if (!isRecord(parsed) || !Array.isArray(parsed.concepts) || parsed.concepts.length !== 3) throw new Error("Local concept response must contain exactly three concepts.");
+  return parsed.concepts.map((value, index) => {
+    if (!isRecord(value)) throw new Error(`Local concept ${index + 1} is not an object.`);
+    const required = ["lens", "name", "logline", "twist", "humor", "thesis", "tone", "mood"] as const;
+    const fields = Object.fromEntries(required.map((field) => [field, cleanString(value[field], "")])) as Record<typeof required[number], string>;
+    if (required.some((field) => !fields[field])) throw new Error(`Local concept ${index + 1} is missing required creative fields.`);
+    return { id: `concept-model-${index + 1}`, ...fields } as DirectorConcept;
+  });
+}
+
+export async function ideateProductionConcepts(
+  input: DirectorInput & { model?: string },
+  options: AnalyzeProductionOptions & { seed?: number } = {},
+): Promise<ConceptIdeationResult> {
+  const seed = options.seed ?? 0;
+  const deterministic = () => ideateConcepts(input, seed) as DirectorConcept[];
+  const fetcher = options.fetcher ?? globalThis.fetch;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  let activeModel: string | null = null;
+  const fallback = (reason: string): ConceptIdeationResult => ({ source: "deterministic-fallback", model: activeModel, concepts: deterministic(), fallbackReason: reason });
+  try {
+    status(options.onStatus, "probing", "Checking the local writer's room.");
+    const probe = await probeLocalBrain({ fetcher, timeoutMs, signal: options.signal, preferredModel: input.model });
+    if (!probe.available || !probe.model) return fallback(probe.error || "No local Ollama model is available.");
+    activeModel = probe.model;
+    status(options.onStatus, "analyzing", `Developing three original directions with ${probe.model}.`);
+    const response = await fetchWithTimeout(fetcher, CHAT_ENDPOINT, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: probe.model,
+        stream: false,
+        format: CONCEPT_SCHEMA,
+        options: { temperature: 0.88, top_p: 0.92, repeat_penalty: 1.08, num_predict: 1800, num_ctx: 8192 },
+        messages: [
+          { role: "system", content: "You are AUTEUR's local creative director. Return valid JSON only. Create exactly three distinct, filmable concepts without imitating a living filmmaker." },
+          { role: "user", content: [
+            `Production request: ${JSON.stringify(input)}`,
+            "Each concept needs a distinct narrative lens, causal twist, visual thesis, humor register, tone, and mood.",
+            "Use concrete people, objects, settings, and consequences. Ban generic inspiration language and ad-speak.",
+          ].join("\n") },
+        ],
+      }),
+    }, timeoutMs, options.signal);
+    if (!response.ok) throw new Error(`Local concept generation failed with HTTP ${response.status}.`);
+    const body = await response.json() as unknown;
+    if (!isRecord(body) || !isRecord(body.message) || typeof body.message.content !== "string") throw new Error("Local concept generation returned an invalid chat payload.");
+    status(options.onStatus, "parsing", "Validating the three creative directions.");
+    const concepts = parseConceptResponse(body.message.content);
+    status(options.onStatus, "complete", "Three local-model directions are ready.");
+    return { source: "ollama", model: probe.model, concepts, fallbackReason: null };
+  } catch (error) {
+    const reason = errorMessage(error);
+    status(options.onStatus, "fallback", reason);
+    return fallback(reason);
   }
 }
 

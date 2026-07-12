@@ -31,6 +31,7 @@ export interface DirectorInput {
   audience?: string;
   tone?: string;
   humor?: string;
+  ideaOverrides?: { hero?: string; setting?: string; object?: string };
   screenplay?: DirectorScreenplay | unknown;
 }
 
@@ -64,7 +65,7 @@ export declare const DIRECTOR_FORMATS: DirectorFormat[];
 export declare function isImageFormat(format: string | undefined): boolean;
 export declare function detectRoute(text: string): "automotive" | "food" | "product" | "vfx" | "editorial" | "nature" | "character";
 export declare const routeToContentType: Record<string, string>;
-export declare function parseIdea(idea: string): ParsedIdea;
+export declare function parseIdea(idea: string, overrides?: { hero?: string; setting?: string; object?: string }): ParsedIdea;
 export declare function extractBriefConstraints(idea: string): { noDialogue: boolean; noVoiceover: boolean; actorCount: number | null; oneLocation: boolean; loopable: boolean; notSalesy: boolean; mustBeFunny: boolean };
 export declare function ideateConcepts(input: DirectorInput, seed?: number): DirectorConcept[];
 export declare function writeScreenplay(input: DirectorInput, concept: DirectorConcept, seed?: number): DirectorScreenplay;

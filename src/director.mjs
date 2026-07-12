@@ -44,16 +44,16 @@ function namedSubject(clean) {
   const quoted = clean.match(/["']([^"']{2,60})["']/);
   return quoted?.[1] || "";
 }
-export function parseIdea(idea) {
+export function parseIdea(idea, overrides = {}) {
   const clean = String(idea || "").replace(/\s+/g, " ").trim();
   const semantic = clean.replace(FORMAT_NOISE, " ").replace(/\s+/g, " ").trim();
   const words = semantic.split(/[^a-zA-Z0-9'-]+/).filter(Boolean);
   const content = words.filter((word) => word.length > 2 && !STOPWORDS.has(word.toLowerCase()));
   const explicitName = namedSubject(clean);
-  const subject = explicitName || content.slice(0, 4).join(" ") || semantic.split(" ").slice(0, 4).join(" ") || "the subject";
-  const anchor = explicitName ? explicitName.split(/\s+/)[0] : content[0] || "subject";
+  const subject = String(overrides.hero || "").trim() || explicitName || content.slice(0, 4).join(" ") || semantic.split(" ").slice(0, 4).join(" ") || "the subject";
+  const anchor = String(overrides.object || "").trim() || (explicitName ? explicitName.split(/\s+/)[0] : content[0] || "subject");
   const location = clean.match(/\b(?:in|inside|at|on)\s+(?:an?\s+|the\s+)?([^.,;]{3,80})/i)?.[1];
-  const world = location || content.slice(4, 8).join(" ") || "its world";
+  const world = String(overrides.setting || "").trim() || location || content.slice(4, 8).join(" ") || "its world";
   return { clean: clean || "an untitled idea", subject: titleCase(subject), anchor, world, keywords: content.slice(0, 14) };
 }
 
@@ -93,6 +93,7 @@ const LENSES = [
   {
     key: "literal-metaphor",
     name: "The Literal Metaphor",
+    groundingFramework: "Literal Metaphor / deadpan physical truth",
     pitch: (idea) => `Take the promise of ${idea.subject} literally and build a physical world where it is simply true.`,
     twist: (idea) => `The metaphor is never explained — the world just obeys it, and ${idea.anchor} is the only thing that behaves normally.`,
     humorDevice: "Deadpan physics: everyone treats the impossible as paperwork.",
@@ -102,6 +103,7 @@ const LENSES = [
   {
     key: "pov-flip",
     name: "The POV Flip",
+    groundingFramework: "POV Reversal / unexpected witness",
     pitch: (idea) => `Tell ${idea.subject} from the least expected witness — the object, the obstacle, or the rival watching it happen.`,
     twist: (idea) => `We only cut to the human story in the final shot, recontextualizing everything the witness misread.`,
     humorDevice: "The witness narrates with total misplaced authority.",
@@ -111,6 +113,7 @@ const LENSES = [
   {
     key: "escalation-engine",
     name: "The Escalation Engine",
+    groundingFramework: "Escalation Engine / compounding consequence",
     pitch: (idea) => `One small action involving ${idea.anchor} compounds shot over shot until the scale becomes absurd — then lands exactly where the brief needs it.`,
     twist: (idea) => `The final beat reveals the escalation was contained inside one ordinary moment of ${idea.world}.`,
     humorDevice: "Comedy of scale: each cut raises the stakes by an order of magnitude, straight-faced.",
@@ -120,6 +123,7 @@ const LENSES = [
   {
     key: "contrast-cut",
     name: "The Contrast Cut",
+    groundingFramework: "Contrast Cut / visual proof by opposition",
     pitch: (idea) => `Two opposing worlds — one starved of ${idea.anchor}, one saturated with it — intercut until they collide in a single frame.`,
     twist: (idea) => `The collision shot reveals the two worlds were the same place, seconds apart.`,
     humorDevice: "Mirror gags: identical blocking, opposite outcomes.",
@@ -129,6 +133,7 @@ const LENSES = [
   {
     key: "one-take-dare",
     name: "The One-Take Dare",
+    groundingFramework: "One-Take Dare / continuous-time payoff",
     pitch: (idea) => `${idea.subject} staged as one continuous, impossibly choreographed take where the camera never blinks.`,
     twist: (idea) => `Everything the take passes changes state behind the camera's back — visible only on the return pass.`,
     humorDevice: "Background choreography does the comedy while the foreground stays earnest.",
@@ -138,6 +143,7 @@ const LENSES = [
   {
     key: "deadpan-documentary",
     name: "The Deadpan Documentary",
+    groundingFramework: "Deadpan Documentary / sincere absurdity",
     pitch: (idea) => `A gravely serious documentary crew treats ${idea.subject} as the most consequential event of the decade.`,
     twist: (idea) => `The experts are sincere, credentialed, and completely right — the world around them is what's absurd.`,
     humorDevice: "Mockumentary gravity: talking heads, archival gravitas, one rogue detail per frame.",
@@ -147,6 +153,7 @@ const LENSES = [
   {
     key: "time-fracture",
     name: "The Time Fracture",
+    groundingFramework: "Time Fracture / continuity-keyed revelation",
     pitch: (idea) => `Open on the final second of ${idea.subject} — then earn it, assembling the timeline out of order until the opening image means the opposite.`,
     twist: (idea) => `A single continuity detail (${idea.anchor}) is the key that re-sorts every scene on second viewing.`,
     humorDevice: "Ironic pre-echoes: early shots quote later ones before they exist.",
@@ -156,6 +163,7 @@ const LENSES = [
   {
     key: "tarantino-table",
     name: "The Long Table",
+    groundingFramework: "Long Table / subtext and loaded props",
     pitch: (idea) => `Two people at a mundane surface talk about everything except ${idea.subject} — while it sits between them, loaded.`,
     twist: (idea) => `The conversation was the demonstration all along; the final line detonates the subtext.`,
     humorDevice: "Digressions with teeth: trivia that turns out to be the argument.",
@@ -234,7 +242,7 @@ const ARCS = {
 
 // ---------- concepts ----------
 export function ideateConcepts(input, seed = 0) {
-  const idea = parseIdea(input.idea);
+  const idea = parseIdea(input.idea, input.ideaOverrides);
   const rng = makeRng(`${idea.clean}::${input.format}::${seed}`);
   const humorWanted = input.humor && input.humor !== "none";
   const pool = humorWanted ? LENSES : LENSES.filter((lens) => !["escalation-engine", "deadpan-documentary"].includes(lens.key)).concat(LENSES.filter((lens) => ["escalation-engine"].includes(lens.key)));
@@ -242,6 +250,7 @@ export function ideateConcepts(input, seed = 0) {
   return lenses.map((lens, index) => ({
     id: `concept-${lens.key}-${seed}-${index}`,
     lens: lens.key,
+    groundingFramework: lens.groundingFramework,
     name: lens.name,
     logline: lens.pitch(idea),
     twist: lens.twist(idea),
@@ -337,7 +346,7 @@ function voFor(idea, input, beatName, rng) {
 }
 
 export function writeScreenplay(input, concept, seed = 0) {
-  const idea = parseIdea(input.idea);
+  const idea = parseIdea(input.idea, input.ideaOverrides);
   const constraints = extractBriefConstraints(input.idea);
   const rng = makeRng(`${idea.clean}::${concept.lens}::${seed}`);
   const formatKey = ARCS[input.format] ? input.format : "Commercial film";
@@ -364,10 +373,14 @@ export function writeScreenplay(input, concept, seed = 0) {
   }
   const shareSum = effectiveBeats.reduce((sum, beat) => sum + beat.share, 0) || 1;
   const requestedCast = constraints.actorCount || (dialogueMode === "dialogue" ? 2 : dialogueMode === "monologue" ? 1 : 0);
-  const cast = pickN(rng, CAST_NAMES, Math.max(0, requestedCast));
+  const heroName = String(input.ideaOverrides?.hero || "").trim().toUpperCase();
+  const cast = heroName && requestedCast > 0
+    ? [heroName, ...pickN(rng, CAST_NAMES.filter((name) => name !== heroName), Math.max(0, requestedCast - 1))]
+    : pickN(rng, CAST_NAMES, Math.max(0, requestedCast));
   const monologue = dialogueMode === "monologue" ? monologueFor(idea, input, effectiveBeats, rng) : null;
-  const primarySetting = `${/parking/i.test(idea.clean) ? "INT. PARKING GARAGE - NIGHT" : /restaurant|kitchen/i.test(idea.clean) ? "INT. RESTAURANT KITCHEN - NIGHT" : `INT./EXT. ${idea.world.toUpperCase() || "THE WORLD"} - CONTROLLED LIGHT`}`;
-  const settings = constraints.oneLocation
+  const explicitSetting = String(input.ideaOverrides?.setting || "").trim();
+  const primarySetting = `${explicitSetting ? `INT./EXT. ${explicitSetting.toUpperCase()} - CONTROLLED LIGHT` : /parking/i.test(idea.clean) ? "INT. PARKING GARAGE - NIGHT" : /restaurant|kitchen/i.test(idea.clean) ? "INT. RESTAURANT KITCHEN - NIGHT" : `INT./EXT. ${idea.world.toUpperCase() || "THE WORLD"} - CONTROLLED LIGHT`}`;
+  const settings = constraints.oneLocation || explicitSetting
     ? [primarySetting, primarySetting, primarySetting]
     : [primarySetting, `INT. ${(idea.keywords[1] || "THE ROOM").toUpperCase()} - CONTROLLED LIGHT`, `INT./EXT. ${idea.anchor.toUpperCase()} SPACE - CONTINUOUS`];
   let remainingSeconds = duration;
@@ -403,7 +416,7 @@ export function writeScreenplay(input, concept, seed = 0) {
 
 // ---------- blueprint ----------
 export function developBlueprint(input, concept, promptBrain = null, seed = 0) {
-  const idea = parseIdea(input.idea);
+  const idea = parseIdea(input.idea, input.ideaOverrides);
   const screenplay = input.screenplay && Array.isArray(input.screenplay.scenes) ? input.screenplay : writeScreenplay(input, concept, seed);
   const route = detectRoute(idea.clean);
   const contentType = routeToContentType[route] || "human";
