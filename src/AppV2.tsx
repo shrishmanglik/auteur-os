@@ -8,6 +8,7 @@ import { deriveCorpusGuidance, embedPacketMedia, exportPacket } from "./engine.m
 import { DIRECTOR_FORMATS, developBlueprint, ideateConcepts, writeScreenplay } from "./director.mjs";
 import type { DirectorConcept, DirectorInput, ScreenplayScene } from "./director.mjs";
 import { analyzeProductionBrief, discoverLocalModelRoles, refineShotDirection } from "./intelligence";
+import { classifyIntakeFiles, elevationInputForProject, preserveAuthoredScriptInBlueprint } from "./intake";
 import { productionActionFor } from "./production-flow";
 import { useStudio } from "./store";
 import type { Project, Shot, WorkspaceMode } from "./types";
@@ -62,9 +63,30 @@ async function toDataUrl(url: string): Promise<string> {
 }
 
 function BrainStatus() {
-  const { brainStatus, brainModel, analysisStage } = useStudio();
+  const { brainStatus, brainModel, analysisStage, setBrainState, setNotice } = useStudio();
   const ready = brainStatus === "ready";
-  return <div className={`v2-brain ${ready ? "ready" : brainStatus}`} title={analysisStage}><Brain size={14} weight="fill" /><span>{ready ? `Local model available / ${brainModel || "detected"}` : brainStatus === "analyzing" ? analysisStage : brainStatus === "offline" ? "Corpus mode / model offline" : "Checking local model"}</span></div>;
+  const refreshModel = async () => {
+    setBrainState({ brainStatus: "checking", analysisStage: "Checking the local model host" });
+    const probe = await discoverLocalModelRoles({ timeoutMs: 12_000 });
+    const preferred = probe.roles.creativeDirector?.selected || probe.roles.screenplay?.selected || probe.model || "";
+    setBrainState({ brainStatus: probe.available ? "ready" : "offline", brainModel: preferred, brainModels: probe.models, analysisStage: probe.available ? "Local creative intelligence ready" : probe.error || "Ollama is not reachable" });
+    setNotice(probe.available ? `Local model ready: ${preferred}.` : "Ollama is still offline. Start Ollama, then check the connection again.");
+  };
+  const label = ready ? (brainModel || "Local model") : brainStatus === "analyzing" ? "Local model working" : brainStatus === "checking" ? "Checking model" : brainStatus === "error" ? "Model needs attention" : "Corpus mode";
+  const retry = <button type="button" onClick={() => void refreshModel()}>Check connection</button>;
+  const content = ready
+    ? <><strong>Local model connected</strong><p>{brainModel || "A compatible Ollama model is active."}</p><small>{analysisStage}</small></>
+    : brainStatus === "analyzing"
+      ? <><strong>Local model is working</strong><p>{analysisStage || "Developing the production with local creative intelligence."}</p><small>The workspace remains available while this completes.</small></>
+      : brainStatus === "checking"
+        ? <><strong>Checking local model</strong><p>AUTEUR is checking Ollama and selecting the strongest available creative role.</p><small>No production feature is gated by this check.</small></>
+        : brainStatus === "error"
+          ? <><strong>Local model needs attention</strong><p>{analysisStage || "The last local-model request did not complete."}</p><small>Your local project is unchanged. Check Ollama, then retry.</small>{retry}</>
+          : <><strong>Local model host is offline</strong><p>Local model host is offline. AUTEUR switches to corpus-grounded deterministic compilation. No features are disabled.</p><small>Start Ollama, confirm a model is installed with <code>ollama list</code>, then check again.</small>{retry}</>;
+  return <details className={`v2-brain ${ready ? "ready" : brainStatus}`}>
+    <summary title={analysisStage}><Brain size={14} weight="fill" /><span>{label}</span></summary>
+    <div className="v2-brain-popover">{content}</div>
+  </details>;
 }
 
 function TopBar() {
@@ -124,15 +146,17 @@ function DraftModelAssist() {
     setElevating(true);
     setBrainState({ brainStatus: "analyzing", analysisStage: "Elevating the corpus draft with the local model" });
     try {
-      const brief = project.brief || `${project.logline}\nCreative thesis: ${project.creativeThesis}`;
+      const input = elevationInputForProject(project, brainModel, osIntelligence?.prompt_brain || null);
+      const brief = input.brief;
       const guidance = deriveCorpusGuidance(project, osIntelligence);
-      const blueprint = await analyzeProductionBrief({ brief, title: project.title, format: project.format, aspect: project.aspect, duration: project.duration, platform: project.platform, provider: project.provider, model: brainModel }, guidance, { timeoutMs: 180_000, onStatus: (_status, detail) => setBrainState({ analysisStage: detail }) });
+      const blueprint = await analyzeProductionBrief(input, guidance, { timeoutMs: 180_000, onStatus: (_status, detail) => setBrainState({ analysisStage: detail }) });
       if (blueprint.source !== "ollama") {
         setBrainState({ brainStatus: "offline", analysisStage: "Local model disconnected during elevation" });
         setNotice("The local model stopped responding. Your Corpus Draft is unchanged; start Ollama and try elevation again.");
         return;
       }
-      setProjectFromBlueprint({ ...blueprint, model: brainModel }, brief);
+      const protectedBlueprint = preserveAuthoredScriptInBlueprint({ ...blueprint, model: brainModel }, project);
+      setProjectFromBlueprint(protectedBlueprint, brief);
       setNotice("Draft elevated and creative QC checked. Review the treatment before export.");
     } catch (error) {
       setBrainState({ brainStatus: "error", analysisStage: "Draft elevation failed" });
@@ -212,8 +236,12 @@ function HomeWorkspace() {
   const [format, setFormat] = useState("Auto");
   const [duration, setDuration] = useState("Auto");
   const [aspect, setAspect] = useState("Auto");
-  const [delivery, setDelivery] = useState("Auto");
+  const [provider, setProvider] = useState("Auto");
+  const [audience, setAudience] = useState("");
+  const [tone, setTone] = useState("Auto");
+  const [humor, setHumor] = useState("Auto");
   const [files, setFiles] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
   const [working, setWorking] = useState(false);
   const [stage, setStage] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -237,10 +265,11 @@ function HomeWorkspace() {
     const seconds = text.match(/\b(\d{1,4})\s*(?:s|sec|secs|second|seconds)\b/);
     const durationValue = duration === "Auto" ? Math.max(4, Math.min(1800, Number(seconds?.[1]) || (formatValue === "Social campaign" ? 15 : formatValue === "A-roll monologue" ? 60 : 30))) : Number(duration);
     const aspectValue = aspect === "Auto" ? (/\b(vertical|portrait|reel|tiktok)\b/.test(text) || formatValue === "Social campaign" ? "9:16" : formatValue === "Short film sequence" ? "2.39:1" : formatValue === "Image campaign" ? "4:5" : "16:9") : aspect;
-    const platform = delivery === "Auto" ? (aspectValue === "9:16" ? "Instagram / TikTok" : formatValue === "Short film sequence" ? "Cinema + web" : "Web + social") : delivery;
-    const humor = /\b(darkly funny|dark comedy|deadpan|dry humor|dryly funny)\b/.test(text) ? "dry" : /\b(absurd|surreal comedy)\b/.test(text) ? "absurd" : /\b(funny|humorous|comedy|playful)\b/.test(text) ? "playful" : "none";
-    const tone = humor === "dry" ? "Deadpan" : /\b(luxury|premium|elegant)\b/.test(text) ? "Luxury restraint" : /\b(intimate|personal|vulnerable)\b/.test(text) ? "Intimate" : "Cinematic";
-    return { format: formatValue, aspect: aspectValue, duration: durationValue, platform, provider: formatValue === "Image campaign" ? "Image model" : "Veo 3.1 / Flow", humor, tone };
+    const platform = aspectValue === "9:16" ? "Instagram / TikTok" : formatValue === "Short film sequence" ? "Cinema + web" : "Web + social";
+    const inferredHumor = /\b(darkly funny|dark comedy|deadpan|dry humor|dryly funny)\b/.test(text) ? "dry" : /\b(absurd|surreal comedy)\b/.test(text) ? "absurd" : /\b(funny|humorous|comedy|playful)\b/.test(text) ? "playful" : "none";
+    const resolvedHumor = humor === "Auto" ? inferredHumor : humor;
+    const inferredTone = resolvedHumor === "dry" ? "Deadpan" : /\b(luxury|premium|elegant)\b/.test(text) ? "Luxury restraint" : /\b(intimate|personal|vulnerable)\b/.test(text) ? "Intimate" : "Cinematic";
+    return { format: formatValue, aspect: aspectValue, duration: durationValue, platform, provider: provider === "Auto" ? (formatValue === "Image campaign" ? "Image model" : "Veo 3.1 / Flow") : provider, audience: audience.trim() || undefined, humor: resolvedHumor, tone: tone === "Auto" ? inferredTone : tone };
   };
   const readFile = (file: File) => new Promise<{ name: string; url: string }>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve({ name: file.name, url: String(reader.result) }); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
   const develop = async () => {
@@ -274,7 +303,56 @@ function HomeWorkspace() {
     }
   };
   const cancel = () => { abortRef.current?.abort(); setWorking(false); setStage(""); setBrainState({ brainStatus: brainModel ? "ready" : "offline", analysisStage: "Production development cancelled" }); };
-  return <div className="v2-home v4-home"><section className="v4-create-surface"><h1>Turn an idea into a production.</h1><p>Describe your world, story, or objective. AUTEUR develops the treatment, script, storyboard, continuity system, sound plan, and generation-ready prompt pack.</p><div className="v4-brief-composer"><textarea disabled={working} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Describe the film, ad, reel, monologue, music video, scene, or campaign you want to make..." /><div className="v4-composer-controls"><label>Format<select disabled={working} value={format} onChange={(event) => setFormat(event.target.value)}><option>Auto</option><option>Commercial film</option><option>Short film sequence</option><option>A-roll monologue</option><option>Social campaign</option><option>Music video</option><option>Single scene</option><option>Image campaign</option></select></label><label>Duration<select disabled={working} value={duration} onChange={(event) => setDuration(event.target.value)}><option>Auto</option><option value="15">15 sec</option><option value="30">30 sec</option><option value="60">60 sec</option><option value="90">90 sec</option></select></label><label>Aspect<select disabled={working} value={aspect} onChange={(event) => setAspect(event.target.value)}><option>Auto</option><option>2.39:1</option><option>16:9</option><option>9:16</option><option>4:5</option></select></label><label>Delivery<select disabled={working} value={delivery} onChange={(event) => setDelivery(event.target.value)}><option>Auto</option><option>Cinema + web</option><option>YouTube</option><option>Instagram / TikTok</option><option>Broadcast</option></select></label><input ref={fileRef} hidden type="file" accept="image/*" multiple onChange={(event) => setFiles(Array.from(event.target.files || []).filter((file) => file.size <= 10 * 1024 * 1024).slice(0, 12))} /><button type="button" className="v4-add-reference" disabled={working} onClick={() => fileRef.current?.click()}><UploadSimple size={16} /> {files.length ? `${files.length} reference${files.length === 1 ? "" : "s"}` : "Add references"}</button>{working ? <button type="button" className="v4-add-reference" onClick={cancel}><X size={16} /> Cancel</button> : <button type="button" className="v4-develop" disabled={!brief.trim()} onClick={() => void develop()}>Develop production <ArrowRight size={17} /></button>}</div>{working && <div className="v4-development-status" role="status"><Brain size={17} weight="fill" /><span><strong>Developing production</strong><small>{stage}</small></span></div>}</div></section><section className="v2-home-section v4-recent"><header><div><h2>Recent production</h2></div><button type="button" onClick={() => setMode("projects")}>View all <ArrowRight size={15} /></button></header><button type="button" className="v2-current-production v4-current-production" onClick={() => setMode("overview")}><img src={project.shots[0]?.image} alt={project.title} /><span><small>{project.format}</small><strong>{project.title}</strong><p>{project.logline}</p><em>{project.scenes.length} scenes / {project.shots.length} shots / {project.duration}s</em></span><div className="v4-shot-preview">{project.shots.slice(0, 5).map((shot, index) => <figure key={shot.id}><img src={shot.image} alt="" /><figcaption>{index + 1} / {shot.shotSize}</figcaption></figure>)}</div></button></section><section className="v4-templates"><h2>Start from a production type</h2><div>{Object.entries(shortcuts).map(([label, preset]) => <button type="button" key={label} onClick={() => openNewProject(preset)}><FilmSlate size={18} /><strong>{label}</strong><span>Develop treatment, storyboard, and prompt pack</span></button>)}</div></section></div>;
+  const ingest = async (incoming: Iterable<File>) => {
+    const routed = classifyIntakeFiles(incoming);
+    const readable = routed.text.filter((file) => file.size <= 2 * 1024 * 1024);
+    const imageFiles = routed.images.filter((file) => file.size <= 10 * 1024 * 1024);
+    const text = (await Promise.all(readable.map((file) => file.text()))).filter(Boolean).join("\n\n");
+    if (text) setBrief((current) => [current.trim(), text.trim()].filter(Boolean).join("\n\n"));
+    if (imageFiles.length) setFiles((current) => [...current, ...imageFiles].slice(0, 12));
+    const skipped = routed.rejected.length + (routed.text.length - readable.length) + (routed.images.length - imageFiles.length);
+    if (skipped) setNotice(`${skipped} unsupported or oversized file${skipped === 1 ? " was" : "s were"} skipped. Use text up to 2 MB or images up to 10 MB.`);
+  };
+  return <div className="v2-home v4-home">
+    <section
+      className={`v4-create-surface ${dragActive ? "is-dragging" : ""}`}
+      onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }}
+      onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragActive(true); }}
+      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragActive(false); }}
+      onDrop={(event) => { event.preventDefault(); setDragActive(false); void ingest(event.dataTransfer.files); }}
+    >
+      {dragActive && <div className="v4-drop-overlay" aria-hidden="true"><UploadSimple size={28} /><strong>Drop brief or references</strong><span>Text becomes the brief. Images become visual references.</span></div>}
+      <h1>Turn an idea into a production.</h1>
+      <p>Describe your world, story, or objective. AUTEUR develops the treatment, script, storyboard, continuity system, sound plan, and generation-ready prompt pack.</p>
+      <div className="v4-brief-composer">
+        <textarea aria-label="Production brief" disabled={working} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Describe the film, ad, reel, monologue, music video, scene, or campaign you want to make..." />
+        <div className="v4-format-picker" role="group" aria-label="Production format">
+          <button type="button" className={format === "Auto" ? "active" : ""} aria-pressed={format === "Auto"} disabled={working} onClick={() => setFormat("Auto")}>Auto</button>
+          {DIRECTOR_FORMATS.map((item) => <button type="button" key={item.key} data-format-key={item.key} className={format === item.key ? "active" : ""} aria-pressed={format === item.key} disabled={working} onClick={() => setFormat(item.key)}>{item.label}</button>)}
+        </div>
+        <div className="v4-composer-controls">
+          <details className="v4-fine-tune">
+            <summary>Fine-tune <span>{[aspect, duration, provider, tone, humor].filter((value) => value !== "Auto").length || "Optional"}</span></summary>
+            <div>
+              <label>Aspect<select disabled={working} value={aspect} onChange={(event) => setAspect(event.target.value)}><option>Auto</option><option>2.39:1</option><option>16:9</option><option>9:16</option><option>4:5</option><option>1:1</option></select></label>
+              <label>Duration<select disabled={working} value={duration} onChange={(event) => setDuration(event.target.value)}><option>Auto</option><option value="15">15 sec</option><option value="30">30 sec</option><option value="60">60 sec</option><option value="90">90 sec</option></select></label>
+              <label>Provider<select disabled={working} value={provider} onChange={(event) => setProvider(event.target.value)}><option>Auto</option><option>Veo 3.1 / Flow</option><option>Sora</option><option>Runway</option><option>Image model</option></select></label>
+              <label>Audience<input disabled={working} value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Who must care?" /></label>
+              <label>Tone<select disabled={working} value={tone} onChange={(event) => setTone(event.target.value)}><option>Auto</option><option>Cinematic</option><option>Playful</option><option>Deadpan</option><option>Epic</option><option>Intimate</option><option>Luxury restraint</option></select></label>
+              <label>Humor<select disabled={working} value={humor} onChange={(event) => setHumor(event.target.value)}><option>Auto</option><option value="none">Played straight</option><option value="dry">Dry / deadpan</option><option value="playful">Playful</option><option value="absurd">Absurdist</option></select></label>
+            </div>
+          </details>
+          <input ref={fileRef} hidden type="file" accept=".txt,.md,.markdown,.fountain,.fdx,text/plain,text/markdown,image/*" multiple onChange={(event) => { void ingest(event.target.files || []); event.currentTarget.value = ""; }} />
+          <button type="button" className="v4-add-reference" title="Attach brief or visual references" aria-label="Attach brief or visual references" disabled={working} onClick={() => fileRef.current?.click()}><UploadSimple size={17} />{files.length ? <span>{files.length}</span> : null}</button>
+          {working ? <button type="button" className="v4-cancel" onClick={cancel}><X size={16} /> Cancel</button> : <button type="button" className="v4-develop" disabled={!brief.trim()} onClick={() => void develop()}>Develop production <ArrowRight size={17} /></button>}
+        </div>
+        {(files.length > 0 || brief) && <div className="v4-intake-meta"><span>{brief.length.toLocaleString()} characters</span><span>{files.length} visual reference{files.length === 1 ? "" : "s"}</span><small>Drop .txt, .md, .fountain, .fdx, or images anywhere above.</small></div>}
+        {working && <div className="v4-development-status" role="status"><Brain size={17} weight="fill" /><span><strong>Developing production</strong><small>{stage}</small></span></div>}
+      </div>
+    </section>
+    <section className="v2-home-section v4-recent"><header><div><h2>Recent production</h2></div><button type="button" onClick={() => setMode("projects")}>View all <ArrowRight size={15} /></button></header><button type="button" className="v2-current-production v4-current-production" onClick={() => setMode("overview")}><img src={project.shots[0]?.image} alt={project.title} /><span><small>{project.format}</small><strong>{project.title}</strong><p>{project.logline}</p><em>{project.scenes.length} scenes / {project.shots.length} shots / {project.duration}s</em></span><div className="v4-shot-preview">{project.shots.slice(0, 5).map((shot, index) => <figure key={shot.id}><img src={shot.image} alt="" /><figcaption>{index + 1} / {shot.shotSize}</figcaption></figure>)}</div></button></section>
+    <section className="v4-templates"><h2>Start from a production type</h2><div>{Object.entries(shortcuts).map(([label, preset]) => <button type="button" key={label} onClick={() => openNewProject(preset)}><FilmSlate size={18} /><strong>{label}</strong><span>Develop treatment, storyboard, and prompt pack</span></button>)}</div></section>
+  </div>;
 }
 
 function ProjectsWorkspace() {
