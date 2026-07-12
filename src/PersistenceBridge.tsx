@@ -4,6 +4,7 @@ import { useStudio } from "./store";
 
 export function PersistenceBridge({ children }: { children: ReactNode }) {
   const hydrated = useRef(false);
+  const backendVault = useRef(false);
   useEffect(() => {
     let disposed = false;
     let timer: number | undefined;
@@ -16,15 +17,22 @@ export function PersistenceBridge({ children }: { children: ReactNode }) {
       queued = false;
       const snapshot = createStudioSnapshot();
       const indexed = await writeIndexedSnapshot(snapshot);
-      void writeBackendSnapshot(snapshot);
-      if (!disposed) useStudio.setState({ persistenceStatus: indexed ? "saved" : useStudio.getState().persistenceStatus });
+      if (backendVault.current) void writeBackendSnapshot(snapshot);
+      if (!disposed && indexed && useStudio.getState().persistenceStatus !== "saved") {
+        useStudio.setState({ persistenceStatus: "saved" });
+      }
       writing = false;
       if (queued && !disposed) void persist();
     };
 
-    Promise.all([readIndexedSnapshot(), readBackendSnapshot()]).then(([indexed, backend]) => {
+    const runtime = globalThis as typeof globalThis & { __AUTEUR_STATE_VAULT__?: boolean };
+    const backendSnapshot = runtime.__AUTEUR_STATE_VAULT__
+      ? readBackendSnapshot()
+      : Promise.resolve({ available: false, snapshot: null });
+    Promise.all([readIndexedSnapshot(), backendSnapshot]).then(([indexed, backend]) => {
       if (disposed) return;
-      const snapshot = chooseNewestSnapshot(indexed, backend);
+      backendVault.current = backend.available;
+      const snapshot = chooseNewestSnapshot(indexed, backend.snapshot);
       if (snapshot) useStudio.setState(workspacePatch(snapshot));
       hydrated.current = true;
       if (!snapshot) void persist();

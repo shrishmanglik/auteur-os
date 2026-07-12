@@ -46,7 +46,7 @@ const server = createServer(async (request, response) => {
   if (request.url === "/api/models/refresh" && request.method === "POST") return isTrustedMcpRequest(request) ? json(response, 200, await modelRouter.refresh()) : json(response, 403, { error: "Model routing is available only to this AUTEUR runtime." });
   if (request.url === "/favicon.ico") { response.writeHead(204); return response.end(); }
   try {
-    const html = await readFile(artifact);
+    const html = (await readFile(artifact, "utf8")).replace("</head>", "<script>globalThis.__AUTEUR_STATE_VAULT__=true;</script></head>");
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
     response.end(html);
   } catch (error) {

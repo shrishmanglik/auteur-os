@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { chooseNewestSnapshot, createStudioSnapshot, isStudioSnapshot, workspacePatch } from "../src/persistence";
 import { useStudio } from "../src/store";
 
@@ -28,4 +29,10 @@ test("rehydration repairs stale scene and shot selections and clamps playhead", 
   assert.equal(patch.selectedShotId, snapshot.project.shots[0].id);
   assert.equal(patch.selectedSceneId, snapshot.project.scenes[0].id);
   assert.equal(patch.playhead, snapshot.project.duration);
+});
+
+test("persistence status updates are guarded against a self-triggered write loop", async () => {
+  const source = await readFile(new URL("../src/PersistenceBridge.tsx", import.meta.url), "utf8");
+  assert.match(source, /persistenceStatus !== "saved"/);
+  assert.match(source, /__AUTEUR_STATE_VAULT__/);
 });

@@ -119,14 +119,20 @@ export async function writeIndexedSnapshot(snapshot: StudioSnapshot): Promise<bo
   }
 }
 
-export async function readBackendSnapshot(): Promise<StudioSnapshot | null> {
+export interface BackendSnapshotResult {
+  available: boolean;
+  snapshot: StudioSnapshot | null;
+}
+
+export async function readBackendSnapshot(): Promise<BackendSnapshotResult> {
   try {
     const response = await fetch("/api/state/snapshot", { headers: { Accept: "application/json" }, cache: "no-store" });
-    if (!response.ok) return null;
+    const available = response.headers.get("X-Auteur-State-Vault") === "1";
+    if (!response.ok || !available) return { available, snapshot: null };
     const value: unknown = await response.json();
-    return isStudioSnapshot(value) ? value : null;
+    return { available: true, snapshot: isStudioSnapshot(value) ? value : null };
   } catch {
-    return null;
+    return { available: false, snapshot: null };
   }
 }
 
