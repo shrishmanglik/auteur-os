@@ -17,10 +17,10 @@ const actions: Partial<Record<WorkspaceMode, ProductionAction>> = {
   cast: { label: "Build storyboard", detail: "Carry locked cast references into the shot plan.", kind: "navigate", target: "storyboard" },
   assets: { label: "Build storyboard", detail: "Carry locked assets and references into the shot plan.", kind: "navigate", target: "storyboard" },
   world: { label: "Build storyboard", detail: "Apply the visual system across the shot plan.", kind: "navigate", target: "storyboard" },
-  prompts: { label: "Export prompt pack", detail: "Compile current changes and export the complete offline package.", kind: "export" },
-  review: { label: "Export prompt pack", detail: "Export the latest package with its current QC evidence state.", kind: "export" },
+  prompts: { label: "Export Prompt Package", detail: "Compile current changes and export the complete offline package.", kind: "export" },
+  review: { label: "Export Prompt Package", detail: "Export the latest package with its current QC evidence state.", kind: "export" },
   board: { label: "Run pre-flight", detail: "Compile current changes and inspect the generation package.", kind: "preflight", target: "prompts" },
-  deliverables: { label: "Export prompt pack", detail: "Compile current changes and export the complete offline package.", kind: "export" },
+  deliverables: { label: "Export Prompt Package", detail: "Compile current changes and export the complete offline package.", kind: "export" },
 };
 
 export const productionModes = Object.freeze(Object.keys(actions) as WorkspaceMode[]);
