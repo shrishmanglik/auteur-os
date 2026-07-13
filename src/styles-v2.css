@@ -72,6 +72,17 @@ button { color:inherit; }
 .v2-qc-gates small { margin-top:3px; color:var(--v2-muted); font-size:7px; line-height:1.4; }
 .v2-brief > small { display:block; margin-top:5px; color:var(--v2-dim); font-size:7px; text-align:right; }
 .v2-notice.warning { border-color:#875752; background:#1b1213; color:#edaaa6; }
+.v2-notice > span { line-height:1.45; }
+.v2-notice > button { flex:none; min-height:28px; padding:0 9px; border:1px solid currentColor; border-radius:3px; color:inherit; background:transparent; font-size:8px; font-weight:800; cursor:pointer; }
+.v2-help { position:relative; display:inline-flex; align-items:center; margin-left:3px; vertical-align:middle; }
+.v2-help > button { width:18px; height:18px; display:inline-grid; place-items:center; padding:0; border:0; border-radius:50%; color:var(--v2-muted); background:transparent; cursor:help; }
+.v2-help > button:hover,.v2-help > button:focus-visible { color:var(--v2-gold2); background:#28231a; outline:none; }
+.v2-help > span[role="tooltip"] { position:absolute; z-index:150; top:calc(100% + 7px); left:50%; width:240px; display:none; padding:10px 11px; border:1px solid var(--v2-line2); border-radius:4px; color:#c8c6bd; background:#111416; box-shadow:0 14px 36px rgba(0,0,0,.55); font-size:9px; font-weight:500; line-height:1.5; text-align:left; text-transform:none; transform:translateX(-50%); }
+.v2-help > span[role="tooltip"] strong { display:block; margin-bottom:3px; color:var(--v2-text); font-size:9px; }
+.v2-help:hover > span[role="tooltip"],.v2-help:focus-within > span[role="tooltip"] { display:block; }
+.v2-source-truth { left:236px; right:auto; display:flex; align-items:center; gap:6px; }
+.v2-source-truth strong { color:rgba(216,178,99,.8); font-weight:700; }
+.v2-source-truth span { color:rgba(170,170,164,.55); }
 .v2-home-status article.warning { color:var(--v2-red); }
 @media (max-width:1009px) {
   .v2-page-actions { flex-direction:column; }
@@ -281,4 +292,11 @@ button { color:inherit; }
 
 @media (min-width: 701px) and (max-width: 1009px) {
   .v4-next-action, .mode-storyboard .v4-next-action { right: 14px; left: 14px; }
+  .v2-source-truth { top:65px; right:8px; bottom:auto; left:auto; display:flex; padding:3px 5px; background:rgba(9,10,11,.9); }
+}
+
+@media (max-width: 700px) {
+  .v2-source-truth { top:65px; right:8px; bottom:auto; left:auto; display:flex; max-width:calc(100vw - 16px); padding:3px 5px; background:rgba(9,10,11,.9); }
+  .v2-source-truth span { display:none; }
+  .v2-help > span[role="tooltip"] { right:-8px; left:auto; width:min(240px,calc(100vw - 24px)); transform:none; }
 }

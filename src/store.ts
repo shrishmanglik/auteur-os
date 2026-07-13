@@ -293,7 +293,7 @@ export const useStudio = create<StudioState>((set, get) => {
       // Only Ollama-authored blueprints update the global model badge/selector;
       // deterministic provenance labels stay on the project (intelligenceModel).
       const brainModel = blueprint.source === "ollama" ? String(blueprint.model || get().brainModel) : get().brainModel;
-      set({ project, selectedShotId: project.shots[0].id, selectedSceneId: project.scenes[0].id, mode: "overview", newProjectOpen: false, newProjectPreset: null, previewing: false, playhead: 0, brainStatus, brainModel, analysisStage: developed ? "Production passed creative QC" : "Corpus Draft ready", notice: developed ? "Production developed: treatment, script, storyboard, continuity, sound, and prompt pack passed creative QC." : "Corpus Draft ready: every production tab is available for review, editing, pre-flight, and export." });
+      set({ project, selectedShotId: project.shots[0].id, selectedSceneId: project.scenes[0].id, mode: "overview", newProjectOpen: false, newProjectPreset: null, previewing: false, playhead: 0, brainStatus, brainModel, analysisStage: developed ? "Production passed creative QC" : "Corpus Draft ready", notice: developed ? "Production developed: treatment, script, storyboard, continuity, sound, and Prompt Package passed creative QC." : "Corpus Draft ready: every production tab is available for review, editing, pre-flight, and export." });
     },
     updateShot: (shotId, patch) => set((state) => {
       const project = { ...state.project, shots: state.project.shots.map((shot) => shot.id === shotId ? { ...shot, ...patch, packetDirty: true } : shot), updatedAt: new Date().toISOString() };

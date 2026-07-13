@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   Aperture, ArrowRight, Brain, CaretRight, Check, Copy, DownloadSimple,
-  FilmSlate, Folder, House, ImageSquare, LockKey, MagicWand, Package, Plus,
+  FilmSlate, Folder, House, ImageSquare, Info, LockKey, MagicWand, Package, Plus,
   Quotes, Sparkle, Stack, UploadSimple, Users, WarningCircle, X,
 } from "@phosphor-icons/react";
 import { deriveCorpusGuidance, embedPacketMedia, exportPacket } from "./engine.mjs";
@@ -10,6 +10,7 @@ import type { DirectorConcept, DirectorInput, ScreenplayScene } from "./director
 import { analyzeProductionBrief, discoverLocalModelRoles, ideateProductionConcepts, refineShotDirection } from "./intelligence";
 import { classifyIntakeFiles, elevationInputForProject, preserveAuthoredScriptInBlueprint } from "./intake";
 import { productionActionFor } from "./production-flow";
+import { noticePresentation } from "./ui-language";
 import { useStudio } from "./store";
 import type { Project, Shot, WorkspaceMode } from "./types";
 import "./styles-v2.css";
@@ -17,7 +18,7 @@ import "./styles-v2.css";
 const globalNav: Array<{ id: WorkspaceMode; label: string; icon: typeof Aperture }> = [
   { id: "home", label: "Create", icon: House },
   { id: "projects", label: "Productions", icon: Folder },
-  { id: "intelligence", label: "Intelligence", icon: Brain },
+  { id: "intelligence", label: "Production Intelligence", icon: Brain },
 ];
 
 const productionNav: Array<{ id: WorkspaceMode; label: string; icon: typeof Aperture }> = [
@@ -25,13 +26,18 @@ const productionNav: Array<{ id: WorkspaceMode; label: string; icon: typeof Aper
   { id: "scenes", label: "Script", icon: Stack },
   { id: "storyboard", label: "Storyboard", icon: FilmSlate },
   { id: "assets", label: "Assets", icon: Users },
-  { id: "prompts", label: "Prompt Pack", icon: Package },
+  { id: "prompts", label: "Prompt Package", icon: Package },
   { id: "review", label: "Review", icon: Aperture },
 ];
 
 function orderedShots(project: Project): Shot[] {
   const byId = new Map(project.shots.map((shot) => [shot.id, shot]));
   return project.scenes.flatMap((scene) => scene.shots.map((id) => byId.get(id)).filter(Boolean) as Shot[]);
+}
+
+function HelpTooltip({ label, children }: { label: string; children: string }) {
+  const tooltipId = useId();
+  return <span className="v2-help"><button type="button" aria-label={`About ${label}`} aria-describedby={tooltipId}><Info size={13} /></button><span id={tooltipId} role="tooltip"><strong>{label}</strong>{children}</span></span>;
 }
 
 function download(name: string, content: string) {
@@ -92,12 +98,12 @@ function BrainStatus() {
 function TopBar() {
   const { project, mode, setMode, setNewProjectOpen } = useStudio();
   const atHome = mode === "home" || mode === "projects" || mode === "intelligence";
-  return <header className="v2-topbar"><button className="v2-brand" type="button" onClick={() => setMode("home")}><span>A</span><strong>AUTEUR</strong></button>{atHome ? <div className="v2-breadcrumb"><strong>{mode === "home" ? "Create" : mode === "projects" ? "Productions" : "Intelligence"}</strong></div> : <div className="v2-breadcrumb"><button type="button" onClick={() => setMode("projects")}>Productions</button><CaretRight size={12} /><strong>{project.title}</strong><CaretRight size={12} /><span>{project.format}</span></div>}<BrainStatus /><div className="v2-top-actions"><button type="button" className="v2-create-top" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> New production</button></div></header>;
+  return <header className="v2-topbar"><button className="v2-brand" type="button" onClick={() => setMode("home")}><span>A</span><strong>AUTEUR</strong></button>{atHome ? <div className="v2-breadcrumb"><strong>{mode === "home" ? "Create" : mode === "projects" ? "Productions" : "Production Intelligence"}</strong></div> : <div className="v2-breadcrumb"><button type="button" onClick={() => setMode("projects")}>Productions</button><CaretRight size={12} /><strong>{project.title}</strong><CaretRight size={12} /><span>{project.format}</span></div>}<BrainStatus /><div className="v2-top-actions"><button type="button" className="v2-create-top" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> New production</button></div></header>;
 }
 
 function SideNav() {
   const { mode, setMode, setNewProjectOpen } = useStudio();
-  return <aside className="v2-sidebar"><button className="v2-new-production" type="button" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> Create</button><nav className="v2-global-nav">{globalNav.map(({ id, label, icon: Icon }) => <button type="button" key={id} className={mode === id ? "active" : ""} onClick={() => setMode(id)}><Icon size={18} /><span>{label}</span></button>)}</nav><div className="v2-nav-label">Production tools</div><nav className="v2-global-nav"><button type="button" className={mode === "assets" ? "active" : ""} onClick={() => setMode("assets")}><Users size={18} /><span>Asset library</span></button><button type="button" className={mode === "storyboard" ? "active" : ""} onClick={() => setMode("storyboard")}><FilmSlate size={18} /><span>Shot lists</span></button><button type="button" className={mode === "prompts" ? "active" : ""} onClick={() => setMode("prompts")}><Package size={18} /><span>Prompt packs</span></button></nav><div className="v2-sidebar-foot"><div className="v2-avatar">SM</div><span><strong>Shrish</strong><small>Offline director workspace</small></span></div></aside>;
+  return <aside className="v2-sidebar"><button className="v2-new-production" type="button" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> Create</button><nav className="v2-global-nav">{globalNav.map(({ id, label, icon: Icon }) => <button type="button" key={id} className={mode === id ? "active" : ""} onClick={() => setMode(id)}><Icon size={18} /><span>{label}</span></button>)}</nav><div className="v2-nav-label">Production tools</div><nav className="v2-global-nav"><button type="button" className={mode === "assets" ? "active" : ""} onClick={() => setMode("assets")}><Users size={18} /><span>Asset library</span></button><button type="button" className={mode === "storyboard" ? "active" : ""} onClick={() => setMode("storyboard")}><FilmSlate size={18} /><span>Shot List & Camera Angles</span></button><button type="button" className={mode === "prompts" ? "active" : ""} onClick={() => setMode("prompts")}><Package size={18} /><span>Prompt Package</span></button></nav><div className="v2-sidebar-foot"><div className="v2-avatar">SM</div><span><strong>Shrish</strong><small>Offline director workspace</small></span></div></aside>;
 }
 
 function ProjectTabs() {
@@ -115,19 +121,19 @@ function ProductionActionBar() {
       if (action.kind === "navigate" && action.target) return setMode(action.target);
       if (action.kind === "preflight") {
         compileAllShots();
-        setNotice("Pre-flight complete. Every shot packet is current and ready for inspection.");
+        setNotice("Pre-flight complete. Every shot Prompt Package is current and ready for inspection.");
         if (action.target) setMode(action.target);
         return;
       }
       compileAllShots();
       const state = useStudio.getState();
       await exportProjectPacket(state.project, state.osIntelligence || osIntelligence);
-      setNotice("Prompt pack exported. No provider job was submitted.");
+      setNotice("Prompt Package exported. No provider job was submitted.");
     } catch (error) {
       setNotice(`${error instanceof Error ? error.message : "Export failed."} Compile the affected shot, then try again.`);
     }
   };
-  return <aside className="v4-next-action" aria-label="Production next step"><span><small>Next step</small><strong>{action.detail}</strong></span><button type="button" onClick={() => void run()}>{action.label}{action.kind === "export" ? <DownloadSimple size={17} /> : <ArrowRight size={17} />}</button></aside>;
+  return <aside className="v4-next-action" aria-label="Production next step"><span><small>Next step{action.kind === "preflight" ? <HelpTooltip label="Pre-flight">Compiles every current shot, checks package readiness, and opens the Prompt Package for inspection.</HelpTooltip> : null}</small><strong>{action.detail}</strong></span><button type="button" onClick={() => void run()}>{action.label}{action.kind === "export" ? <DownloadSimple size={17} /> : <ArrowRight size={17} />}</button></aside>;
 }
 
 function DraftModelAssist() {
@@ -210,7 +216,7 @@ function DirectorDock() {
       setCommand("");
     } catch (error) {
       setBrainState({ brainStatus: "error", analysisStage: "Shot direction failed" });
-      setNotice(error instanceof Error ? error.message : "Shot direction failed.");
+      setNotice(`${error instanceof Error ? error.message : "Shot direction failed."} Review the selected shot, then direct it again.`);
     } finally {
       setWorking(false);
     }
@@ -227,7 +233,7 @@ function Inspector() {
   const shot = project.shots.find((item) => item.id === selectedShotId)!;
   const readImage = (file: File | undefined, field: "image" | "startFrame" | "endFrame") => { if (!file) return; const reader = new FileReader(); reader.onload = () => updateShot(shot.id, { [field]: String(reader.result), ...(field === "image" ? { visualSource: "uploaded" } : {}) }); reader.readAsDataURL(file); };
   const active = shot.versions.find((version) => version.id === shot.activeVersionId) || shot.versions[0];
-  return <aside className="v2-inspector"><div className="v2-inspector-tabs">{(["creative", "camera", "continuity", "generation"] as const).map((item) => <button key={item} className={tab === item ? "active" : ""} type="button" onClick={() => setTab(item)}>{item}</button>)}</div><div className="v2-inspector-body">{tab === "creative" && <><label><span>Shot title</span><input value={shot.title} onChange={(event) => updateShot(shot.id, { title: event.target.value })} /></label><label><span>Purpose</span><textarea value={shot.intent} onChange={(event) => updateShot(shot.id, { intent: event.target.value })} /></label><label><span>Defining action</span><textarea value={shot.action} onChange={(event) => updateShot(shot.id, { action: event.target.value })} /></label><label><span>Resolved end state</span><textarea value={shot.endState} onChange={(event) => updateShot(shot.id, { endState: event.target.value })} /></label><button type="button" className="v2-replace" onClick={() => frameRef.current?.click()}><UploadSimple size={15} /> Replace reference proxy</button><input hidden ref={frameRef} type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0], "image")} /></>}{tab === "camera" && <><label><span>Shot size</span><input value={shot.shotSize} onChange={(event) => updateShot(shot.id, { shotSize: event.target.value })} /></label><label><span>Lens language</span><input value={shot.lens} onChange={(event) => updateShot(shot.id, { lens: event.target.value })} /></label><label><span>Movement</span><input value={shot.movement} onChange={(event) => updateShot(shot.id, { movement: event.target.value })} /></label><label><span>Duration</span><input type="number" min="1" step="0.5" value={shot.duration} onChange={(event) => updateShot(shot.id, { duration: Number(event.target.value) || 1 })} /></label></>}{tab === "continuity" && <><div className="v2-frame-slots"><button type="button" onClick={() => startRef.current?.click()}>{shot.startFrame ? <img src={shot.startFrame} alt="Start frame" /> : <><ImageSquare size={21} /><span>Add start frame</span></>}</button><button type="button" onClick={() => endRef.current?.click()}>{shot.endFrame ? <img src={shot.endFrame} alt="End frame" /> : <><ImageSquare size={21} /><span>Add end frame</span></>}</button></div><input hidden ref={startRef} type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0], "startFrame")} /><input hidden ref={endRef} type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0], "endFrame")} /><span className="v2-section-label">Ingredients & references</span><div className="v2-reference-list">{project.assets.map((asset) => <button type="button" key={asset.id} className={asset.locked ? "locked" : ""} onClick={() => toggleAssetLock(asset.id)}><img src={asset.url} alt="" /><span><strong>{asset.name}</strong><small>{asset.role || asset.type}</small></span>{asset.locked && <LockKey size={12} weight="fill" />}</button>)}</div><span className="v2-section-label">Continuity locks</span><div className="v2-locks">{shot.continuityLocks.map((lock) => <span key={lock}>{lock}</span>)}</div></>}{tab === "generation" && <><div className="v2-route"><small>Provider route</small><strong>{shot.provider}</strong><span>Manual handoff</span></div><div className="v2-compat"><p><Check size={13} /> Prompt packet</p><p><Check size={13} /> Reference list</p><p className={shot.startFrame ? "" : "warn"}><WarningCircle size={13} /> Start frame {shot.startFrame ? "ready" : "optional"}</p><p className={shot.endFrame ? "" : "warn"}><WarningCircle size={13} /> End frame {shot.endFrame ? "ready" : "optional"}</p></div><pre className="v2-prompt-preview">{active.videoPrompt}</pre></>}</div><footer><button type="button" onClick={compileSelectedShot}><Sparkle size={17} /> Generate packet</button><small>Creates a versioned provider handoff. No provider job is submitted.</small></footer></aside>;
+  return <aside className="v2-inspector"><div className="v2-inspector-tabs">{(["creative", "camera", "continuity", "generation"] as const).map((item) => <button key={item} className={tab === item ? "active" : ""} type="button" onClick={() => setTab(item)}>{item}</button>)}</div><div className="v2-inspector-body">{tab === "creative" && <><label><span>Shot title</span><input value={shot.title} onChange={(event) => updateShot(shot.id, { title: event.target.value })} /></label><label><span>Purpose</span><textarea value={shot.intent} onChange={(event) => updateShot(shot.id, { intent: event.target.value })} /></label><label><span>Defining action</span><textarea value={shot.action} onChange={(event) => updateShot(shot.id, { action: event.target.value })} /></label><label><span>Resolved end state</span><textarea value={shot.endState} onChange={(event) => updateShot(shot.id, { endState: event.target.value })} /></label><button type="button" className="v2-replace" onClick={() => frameRef.current?.click()}><UploadSimple size={15} /> Replace reference proxy</button><input hidden ref={frameRef} type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0], "image")} /></>}{tab === "camera" && <><label><span>Shot size</span><input value={shot.shotSize} onChange={(event) => updateShot(shot.id, { shotSize: event.target.value })} /></label><label><span>Lens language</span><input value={shot.lens} onChange={(event) => updateShot(shot.id, { lens: event.target.value })} /></label><label><span>Movement</span><input value={shot.movement} onChange={(event) => updateShot(shot.id, { movement: event.target.value })} /></label><label><span>Duration</span><input type="number" min="1" step="0.5" value={shot.duration} onChange={(event) => updateShot(shot.id, { duration: Number(event.target.value) || 1 })} /></label></>}{tab === "continuity" && <><div className="v2-frame-slots"><button type="button" onClick={() => startRef.current?.click()}>{shot.startFrame ? <img src={shot.startFrame} alt="Start frame" /> : <><ImageSquare size={21} /><span>Add start frame</span></>}</button><button type="button" onClick={() => endRef.current?.click()}>{shot.endFrame ? <img src={shot.endFrame} alt="End frame" /> : <><ImageSquare size={21} /><span>Add end frame</span></>}</button></div><input hidden ref={startRef} type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0], "startFrame")} /><input hidden ref={endRef} type="file" accept="image/*" onChange={(event) => readImage(event.target.files?.[0], "endFrame")} /><span className="v2-section-label">Ingredients & references</span><div className="v2-reference-list">{project.assets.map((asset) => <button type="button" key={asset.id} className={asset.locked ? "locked" : ""} onClick={() => toggleAssetLock(asset.id)}><img src={asset.url} alt="" /><span><strong>{asset.name}</strong><small>{asset.role || asset.type}</small></span>{asset.locked && <LockKey size={12} weight="fill" />}</button>)}</div><span className="v2-section-label">Continuity locks</span><div className="v2-locks">{shot.continuityLocks.map((lock) => <span key={lock}>{lock}</span>)}</div></>}{tab === "generation" && <><div className="v2-route"><small>Provider route</small><strong>{shot.provider}</strong><span>Manual handoff</span></div><div className="v2-compat"><p><Check size={13} /> Prompt Package</p><p><Check size={13} /> Reference list</p><p className={shot.startFrame ? "" : "warn"}><WarningCircle size={13} /> Start frame {shot.startFrame ? "ready" : "optional"}</p><p className={shot.endFrame ? "" : "warn"}><WarningCircle size={13} /> End frame {shot.endFrame ? "ready" : "optional"}</p></div><pre className="v2-prompt-preview">{active.videoPrompt}</pre></>}</div><footer><button type="button" onClick={compileSelectedShot}><Sparkle size={17} /> Generate packet</button><small>Creates a versioned provider handoff. No provider job is submitted.</small></footer></aside>;
 }
 
 function HomeWorkspace() {
@@ -293,7 +299,7 @@ function HomeWorkspace() {
       setFiles([]);
     } catch (error) {
       if (!controller.signal.aborted) {
-        setNotice(error instanceof Error ? error.message : "Production development failed.");
+        setNotice(`Production development failed: ${error instanceof Error ? error.message : "the production could not be built."} Review the brief, then try again.`);
         setBrainState({ brainStatus: "error", analysisStage: "Production development failed" });
       }
     } finally {
@@ -323,7 +329,7 @@ function HomeWorkspace() {
     >
       {dragActive && <div className="v4-drop-overlay" aria-hidden="true"><UploadSimple size={28} /><strong>Drop brief or references</strong><span>Text becomes the brief. Images become visual references.</span></div>}
       <h1>Turn an idea into a production.</h1>
-      <p>Describe your world, story, or objective. AUTEUR develops the treatment, script, storyboard, continuity system, sound plan, and generation-ready prompt pack.</p>
+      <p>Describe your world, story, or objective. AUTEUR develops the treatment, script, storyboard, continuity system, sound plan, and generation-ready Prompt Package.</p>
       <div className="v4-brief-composer">
         <textarea aria-label="Production brief" disabled={working} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Describe the film, ad, reel, monologue, music video, scene, or campaign you want to make..." />
         <div className="v4-format-picker" role="group" aria-label="Production format">
@@ -351,7 +357,7 @@ function HomeWorkspace() {
       </div>
     </section>
     <section className="v2-home-section v4-recent"><header><div><h2>Recent production</h2></div><button type="button" onClick={() => setMode("projects")}>View all <ArrowRight size={15} /></button></header><button type="button" className="v2-current-production v4-current-production" onClick={() => setMode("overview")}><img src={project.shots[0]?.image} alt={project.title} /><span><small>{project.format}</small><strong>{project.title}</strong><p>{project.logline}</p><em>{project.scenes.length} scenes / {project.shots.length} shots / {project.duration}s</em></span><div className="v4-shot-preview">{project.shots.slice(0, 5).map((shot, index) => <figure key={shot.id}><img src={shot.image} alt="" /><figcaption>{index + 1} / {shot.shotSize}</figcaption></figure>)}</div></button></section>
-    <section className="v4-templates"><h2>Start from a production type</h2><div>{Object.entries(shortcuts).map(([label, preset]) => <button type="button" key={label} onClick={() => openNewProject(preset)}><FilmSlate size={18} /><strong>{label}</strong><span>Develop treatment, storyboard, and prompt pack</span></button>)}</div></section>
+    <section className="v4-templates"><h2>Start from a production type</h2><div>{Object.entries(shortcuts).map(([label, preset]) => <button type="button" key={label} onClick={() => openNewProject(preset)}><FilmSlate size={18} /><strong>{label}</strong><span>Develop treatment, storyboard, and Prompt Package</span></button>)}</div></section>
   </div>;
 }
 
@@ -395,7 +401,7 @@ function PromptsWorkspace() {
   const version = shot.versions.find((item) => item.id === shot.activeVersionId) || shot.versions[0];
   const [layer, setLayer] = useState<"frame" | "video" | "audio" | "negative">("video");
   const prompt = layer === "frame" ? version.framePrompt : layer === "audio" ? version.audioPrompt : layer === "negative" ? version.negativePrompt : version.videoPrompt;
-  return <div className="v2-page v2-prompts"><header><small>Prompt packets</small><h1>{shot.title}</h1><p>{shot.provider} / version {version.label} / {shot.packetDirty ? "needs compile" : "current"}</p></header><div className="v2-prompt-layout"><aside>{orderedShots(project).map((item) => <button key={item.id} type="button" className={item.id === shot.id ? "active" : ""} onClick={() => selectShot(item.id)}><img src={item.image} alt="" /><span>{item.title}<small>{item.versions.length} versions</small></span></button>)}</aside><section><nav>{(["frame", "video", "audio", "negative"] as const).map((item) => <button type="button" key={item} className={item === layer ? "active" : ""} onClick={() => setLayer(item)}>{item}</button>)}</nav><pre>{prompt}</pre><footer>{shot.packetDirty && <button type="button" onClick={compileSelectedShot}><MagicWand size={15} /> Compile current edits</button>}<button type="button" onClick={() => navigator.clipboard.writeText(prompt)}><Copy size={15} /> Copy layer</button></footer></section></div></div>;
+  return <div className="v2-page v2-prompts"><header><small>Prompt Package <HelpTooltip label="Prompt Package">The versioned image, video, audio, negative, reference, and QC instructions prepared for a generation engine.</HelpTooltip> · Continuity <HelpTooltip label="Continuity">Locks identity, wardrobe, objects, geography, and frame state across connected shots.</HelpTooltip></small><h1>{shot.title}</h1><p>{shot.provider} / version {version.label} / {shot.packetDirty ? "needs compile" : "current"}</p></header><div className="v2-prompt-layout"><aside>{orderedShots(project).map((item) => <button key={item.id} type="button" className={item.id === shot.id ? "active" : ""} onClick={() => selectShot(item.id)}><img src={item.image} alt="" /><span>{item.title}<small>{item.versions.length} versions</small></span></button>)}</aside><section><nav>{(["frame", "video", "audio", "negative"] as const).map((item) => <button type="button" key={item} className={item === layer ? "active" : ""} onClick={() => setLayer(item)}>{item}</button>)}</nav><pre>{prompt}</pre><footer>{shot.packetDirty && <button type="button" onClick={compileSelectedShot}><MagicWand size={15} /> Compile current edits</button>}<button type="button" onClick={() => navigator.clipboard.writeText(prompt)}><Copy size={15} /> Copy layer</button></footer></section></div></div>;
 }
 
 function ReviewWorkspace() {
@@ -612,7 +618,7 @@ function NewProductionDialog() {
       resetDraft();
     } catch (error) {
       if (controller.signal.aborted || runRef.current !== runId) return;
-      setNotice(error instanceof Error ? error.message : "The production could not be built.");
+      setNotice(`Production development failed: ${error instanceof Error ? error.message : "the production could not be built."} Review the screenplay, then try again.`);
       setBrainState({ brainStatus: "error", analysisStage: "Production development failed" });
     } finally {
       if (runRef.current === runId) { abortRef.current = null; setWorking(false); }
@@ -620,7 +626,7 @@ function NewProductionDialog() {
   };
   const totalScripted = scenes.reduce((sum, scene) => sum + (Number(scene.duration) || 0), 0);
   return <div className="v2-modal-backdrop" onMouseDown={closeDialog}><section className="v2-new-dialog v2-wizard" role="dialog" aria-modal="true" aria-label="Create a production" onMouseDown={(event) => event.stopPropagation()}>
-    <header><div><small>New production - AUTEUR Director</small><h2>{step === "brief" ? "What are we making?" : step === "concepts" ? "Pick the angle" : "The screenplay"}</h2><p>{step === "brief" ? "Develop the full production directly, or explore creative directions before AUTEUR writes the treatment, script, storyboard, continuity system, sound plan, and prompt pack." : step === "concepts" ? "Three ways to tell it, each with its own twist. Reroll for different lenses." : "Edit anything. Dialogue is spoken verbatim by the cast. Then AUTEUR builds scenes, shots, continuity, and provider packets."}</p></div><button type="button" aria-label="Close new production" onClick={closeDialog}><X size={20} /></button></header>
+    <header><div><small>New production - AUTEUR Director</small><h2>{step === "brief" ? "What are we making?" : step === "concepts" ? "Pick the angle" : "The screenplay"}</h2><p>{step === "brief" ? "Develop the full production directly, or explore creative directions before AUTEUR writes the treatment, script, storyboard, continuity system, sound plan, and Prompt Package." : step === "concepts" ? "Three ways to tell it, each with its own twist. Reroll for different lenses." : "Edit anything. Dialogue is spoken verbatim by the cast. Then AUTEUR builds scenes, shots, continuity, and provider packets."}</p></div><button type="button" aria-label="Close new production" onClick={closeDialog}><X size={20} /></button></header>
     <div className="v2-wizard-steps">{(["brief", "concepts", "script"] as const).map((item, index) => <span key={item} className={step === item ? "active" : (["brief", "concepts", "script"] as const).indexOf(step) > index ? "done" : ""}>{index + 1}. {item === "brief" ? "Idea" : item === "concepts" ? "Concepts" : "Script"}</span>)}</div>
     {step === "brief" && <>
       <label className="v2-brief"><span>Idea, script, treatment, or shot list</span><textarea autoFocus maxLength={12000} value={brief} onChange={(event) => { setBrief(event.target.value); invalidateStory(); }} placeholder="A sommelier who can identify the exact vineyard... a watch ad where time literally slows... a founder monologue about why slow is fast..." /><small>{brief.length.toLocaleString()} / 12,000 characters</small></label>
@@ -655,10 +661,22 @@ function NewProductionDialog() {
 }
 
 function Notice() {
-  const { notice, setNotice } = useStudio();
+  const { notice, setNotice, setMode } = useStudio();
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(""), 4200); return () => window.clearTimeout(timer); }, [notice, setNotice]);
-  const warning = /failed|could not|not ready|unavailable|exceeds|limit|select at least|attach provider|needs compile/i.test(notice);
-  return notice ? <div className={`v2-notice ${warning ? "warning" : ""}`} role={warning ? "alert" : "status"}>{warning ? <WarningCircle size={15} weight="fill" /> : <Check size={15} weight="bold" />}{notice}</div> : null;
+  const presentation = noticePresentation(notice);
+  const recover = () => {
+    if (presentation.recovery === "prompts") setMode("prompts");
+    if (presentation.recovery === "review-upload") {
+      setMode("review");
+      window.requestAnimationFrame(() => document.querySelector<HTMLInputElement>('input[type="file"][accept="image/*,video/*"]')?.click());
+    }
+    if (presentation.recovery === "model") {
+      const modelStatus = document.querySelector<HTMLDetailsElement>(".v2-brain");
+      if (modelStatus) modelStatus.open = true;
+    }
+    setNotice("");
+  };
+  return notice ? <div className={`v2-notice ${presentation.kind === "error" ? "warning" : ""}`} role={presentation.kind === "error" ? "alert" : "status"}>{presentation.kind === "error" ? <WarningCircle size={15} weight="fill" /> : <Check size={15} weight="bold" />}<span>{presentation.message}</span>{presentation.actionLabel ? <button type="button" onClick={recover}>{presentation.actionLabel}</button> : null}</div> : null;
 }
 
 export function AppV2() {
@@ -681,10 +699,10 @@ export function AppV2() {
     discoverLocalModelRoles({ timeoutMs: 12_000 }).then((probe) => {
       const preferred = probe.roles.creativeDirector?.selected || probe.roles.screenplay?.selected || probe.model || "";
       const routeSummary = probe.roles.screenplay?.selected && probe.roles.promptPacket?.selected
-        ? `Auto-routed: screenplay ${probe.roles.screenplay.selected}; prompt packets ${probe.roles.promptPacket.selected}`
+        ? `Auto-routed: screenplay ${probe.roles.screenplay.selected}; Prompt Packages ${probe.roles.promptPacket.selected}`
         : "Local creative intelligence ready";
       setBrainState({ brainStatus: probe.available ? "ready" : "offline", brainModel: preferred, brainModels: probe.models, analysisStage: probe.available ? routeSummary : probe.error || "Local brain unavailable" });
     });
   }, [setBrainState, setCorpusIntelligence, setIntelligenceStatus]);
-  return <div className={`v2-shell mode-${mode}`}><TopBar /><SideNav /><main className="v2-main"><Workspace /></main>{mode === "storyboard" && <Inspector />}<NewProductionDialog /><Notice /><div className="v2-source-truth">{project.intelligenceSource === "ollama" ? `AI-authored / ${project.intelligenceModel}` : "Deterministic draft / local brain not used"}</div></div>;
+  return <div className={`v2-shell mode-${mode}`}><TopBar /><SideNav /><main className="v2-main"><Workspace /></main>{mode === "storyboard" && <Inspector />}<NewProductionDialog /><Notice /><div className="v2-source-truth"><strong>Local-First Processing Active</strong><span>{project.intelligenceSource === "ollama" ? `AI-authored locally / ${project.intelligenceModel}` : "Corpus-grounded deterministic draft / no model used"}</span></div></div>;
 }
