@@ -27,6 +27,7 @@ export const lightingGradeSchema: RuntimeSchema<LightingGrade>;
 export const audioTrackSchema: RuntimeSchema<AudioTrack>;
 export const universalShotV2Schema: RuntimeSchema<UniversalShotV2Input>;
 export function inferOpticsFromShotGrammar(shot: Pick<UniversalShotV2Input, "shotSize" | "lens">): Optics;
+export function opticsToProse(optics: Partial<Optics>): string;
 export function normalizeUniversalShotV2<T extends object>(shot: T & UniversalShotV2Input, defaults?: UniversalShotV2Defaults): Omit<T, "audioTrack"> & {
   dialogue: string;
   audioIntent: string;

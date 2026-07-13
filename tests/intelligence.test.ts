@@ -154,7 +154,7 @@ test("normalizes junk model optics and folds audioTrack into canonical audio fie
   const normalized = blueprint.scenes[0].shots[0];
   assert.deepEqual(normalized.optics, {
     cameraBody: "Alexa 35",
-    lensModel: "100mm macro",
+    lensModel: "macro",
     focalLengthMm: 100,
     tStop: 2.8,
     subjectDistanceMeters: 0.45,
