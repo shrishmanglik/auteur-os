@@ -76,6 +76,25 @@ test("compiles image, video, and audio prompts from project and shot state", () 
   assert.ok(packet.qcGates.some((gate) => /held resolved end state/i.test(gate)));
 });
 
+test("compiles normalized optics before movement direction", () => {
+  const project = createProjectFromBrief("A quiet automotive film", { title: "Optics" });
+  const shot = project.shots[0];
+  shot.optics = {
+    cameraBody: "ARRI Alexa 35",
+    lensModel: "Signature Prime",
+    focalLengthMm: 85,
+    tStop: 1.4,
+    subjectDistanceMeters: 1.2,
+  };
+  shot.movement = "a deliberate lateral track";
+  const packet = compileShot(project, shot);
+  const opticsIndex = packet.videoPrompt.indexOf("Shot on ARRI Alexa 35 with 85mm Signature Prime at T1.4");
+  const movementIndex = packet.videoPrompt.indexOf("Movement: a deliberate lateral track");
+  assert.ok(opticsIndex >= 0);
+  assert.ok(movementIndex > opticsIndex);
+  assert.match(packet.videoPrompt, /shallow depth of field with pronounced subject separation/i);
+});
+
 test("selects project-aware corpus intelligence and compiles it through every packet layer", () => {
   const project = createProjectFromBrief("A performance sedan crosses a wet alpine road", { title: "Road" });
   const guidance = deriveCorpusGuidance(project, sampleIntelligence);

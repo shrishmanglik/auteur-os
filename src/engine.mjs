@@ -1,4 +1,4 @@
-import { normalizeUniversalShotV2 } from "./universal-packet.mjs";
+import { normalizeUniversalShotV2, opticsToProse } from "./universal-packet.mjs";
 
 const uid = (prefix = "id") => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 // Canonical duration rounding: every stored or compared duration sum passes through this,
@@ -206,6 +206,8 @@ export function deriveCorpusGuidance(project, intelligence = null) {
 }
 
 export function compileShot(project, shot, renderRules = [], intelligence = null) {
+  shot = normalizeUniversalShotV2(shot);
+  const opticsProse = opticsToProse(shot.optics);
   const continuity = (shot.continuityRefs || [])
     .map((id) => project.assets.find((asset) => asset.id === id && asset.locked)?.name)
     .filter(Boolean);
@@ -234,7 +236,7 @@ export function compileShot(project, shot, renderRules = [], intelligence = null
 
   const framePrompt = [
     `${shot.title}. ${shot.description}`,
-    `${shot.shotSize}, ${shot.lens}; ${shot.movement}.`,
+    `${shot.shotSize}. ${opticsProse} Movement: ${shot.movement}.`,
     `${project.style}; ${project.mood}; ${project.realism}; ${project.quality}. ${project.worldRule}`,
     guidance.available ? `Render-proven style grammar: ${styleGrammar}.` : "",
     `Continuity locks: ${locks.join(", ") || "project references and prior-frame state"}.`,
@@ -246,14 +248,14 @@ export function compileShot(project, shot, renderRules = [], intelligence = null
   const promptHead = stillFrame ? [
     `Create one ${project.aspect} still campaign frame (a single image, no motion or video): ${shot.description}`,
     `The held moment: ${shot.action}.`,
-    `Composition: ${shot.shotSize}, ${shot.lens}; framing intent: ${shot.movement}.`,
+    `Composition: ${shot.shotSize}. ${opticsProse} Framing intent: ${shot.movement}.`,
   ] : [
     `Create a ${shot.duration}-second ${project.aspect} cinematic shot: ${shot.description}`,
     `Start state: ${shot.startState}.`,
     `Defining action: ${shot.action}.`,
     spokenLines ? `Spoken performance (verbatim, native audio, accurate lip-sync, no rubber-mouth): ${spokenLines}` : "",
     `Resolved end state: ${shot.endState}; hold it for the edit.`,
-    `Camera: ${shot.shotSize}, ${shot.lens}, ${shot.movement}.`,
+    `Camera: ${shot.shotSize}. ${opticsProse} Movement: ${shot.movement}.`,
   ];
   const videoPrompt = [
     ...promptHead,
