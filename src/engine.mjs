@@ -1,3 +1,5 @@
+import { normalizeUniversalShotV2 } from "./universal-packet.mjs";
+
 const uid = (prefix = "id") => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 // Canonical duration rounding: every stored or compared duration sum passes through this,
 // so float dust (e.g. 7 x ~0.57 = 3.9999999999999996) can never desynchronize timing
@@ -497,7 +499,7 @@ export function createProjectFromBrief(brief, options = {}) {
   const assets = playbook.assets.map(([name, type, image]) => ({ id: uid("asset"), name, type, url: mediaUrl(`/media/${playbook.media}/shot-0${image}.jpg`), locked: true }));
   const shots = shotSpecs.map(([title, description, movement, lens, shotSize], index) => {
     const scene = scenes[Math.floor(index / 2)];
-    const shot = {
+    const shot = normalizeUniversalShotV2({
       id: uid("shot"),
       sceneId: scene.id,
       order: index % 2,
@@ -522,7 +524,11 @@ export function createProjectFromBrief(brief, options = {}) {
       activeVersionId: null,
       packetDirty: false,
       review: { renderUrl: "", critique: "", proposals: [], temporalPass: null, continuityPass: null, status: "unreviewed" },
-    };
+    }, {
+      primarySource: "Motivated practical key",
+      paletteBase: "Natural neutrals",
+      audioIntent: playbook.audio,
+    });
     scene.shots.push(shot.id);
     return shot;
   });
@@ -630,7 +636,7 @@ export function createProjectFromBlueprint(blueprint, options = {}) {
     const image = String(shot.image || mediaUrl(`/media/${media}/shot-0${(visualIndex++ % 6) + 1}.jpg`));
     const continuityLocks = Array.isArray(shot.continuityLocks) ? shot.continuityLocks.map(String) : [];
     const referenceNeeds = Array.isArray(shot.referenceNeeds) ? shot.referenceNeeds.map(String) : [];
-    const normalized = {
+    const normalized = normalizeUniversalShotV2({
       id,
       sceneId: sceneIds[sceneIndex],
       order: shotIndex,
@@ -661,7 +667,11 @@ export function createProjectFromBlueprint(blueprint, options = {}) {
       activeVersionId: null,
       packetDirty: false,
       review: { renderUrl: "", critique: "", proposals: [], temporalPass: null, continuityPass: null, status: "unreviewed" },
-    };
+    }, {
+      primarySource: styleBible.lighting,
+      paletteBase: styleBible.palette,
+      audioIntent: blueprint.audioPlan || options.audio || "Visible-source sound and restrained score",
+    });
     scenes[sceneIndex].shots.push(id);
     return normalized;
   }));

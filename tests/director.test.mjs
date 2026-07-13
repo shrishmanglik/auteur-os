@@ -127,6 +127,19 @@ test("developBlueprint produces a valid blueprint with dialogue on shots", () =>
   assert.ok(blueprint.assets.some((asset) => asset.type === "character"), "cast becomes assets");
 });
 
+test("deterministic Director derives sensible optics from each shot grammar", () => {
+  const concept = ideateConcepts(INPUT, 0)[0];
+  const blueprint = developBlueprint(INPUT, concept, null, 0);
+  const shots = blueprint.scenes.flatMap((scene) => scene.shots);
+  assert.ok(shots.length > 0);
+  for (const shot of shots) {
+    assert.ok(shot.optics.focalLengthMm > 0);
+    assert.ok(shot.optics.tStop > 0);
+    assert.ok(shot.optics.subjectDistanceMeters > 0);
+    assert.equal(shot.optics.cameraBody, "ARRI Alexa 35");
+  }
+});
+
 test("blueprint flows into a project and dialogue reaches the compiled video prompt", () => {
   const concept = ideateConcepts(INPUT, 0)[0];
   const blueprint = developBlueprint(INPUT, concept, null, 0);

@@ -47,6 +47,26 @@ export interface ShotReview {
   status: "unreviewed" | "reviewing" | "pass" | "repair";
 }
 
+export interface Optics {
+  cameraBody?: string;
+  lensModel?: string;
+  focalLengthMm: number;
+  tStop: number;
+  subjectDistanceMeters: number;
+}
+
+export interface LightingGrade {
+  primarySource: string;
+  paletteBase: string;
+  isDesaturated: boolean;
+  isCrushedBlacks: boolean;
+}
+
+export interface AudioTrack {
+  spokenText?: string;
+  soundDesignDirectives: string[];
+}
+
 export interface Shot {
   id: string;
   sceneId: string;
@@ -66,6 +86,9 @@ export interface Shot {
   endState: string;
   dialogue?: string;
   audioIntent: string;
+  optics?: Optics;
+  imperfectionAnchors?: string[];
+  lightingGrade?: LightingGrade;
   continuityRefs: string[];
   continuityLocks: string[];
   activeRepairs: RepairProposal[];

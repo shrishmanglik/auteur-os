@@ -2,6 +2,8 @@ import type { CorpusGuidance } from "./types";
 import type { Project, Shot } from "./types";
 import { detectRoute, developBlueprint, extractBriefConstraints, ideateConcepts, routeToContentType } from "./director.mjs";
 import type { DirectorConcept, DirectorInput } from "./director.mjs";
+import { normalizeUniversalShotV2 } from "./universal-packet.mjs";
+import type { AudioTrack, LightingGrade, Optics } from "./types";
 
 const runtimeGlobals = globalThis as typeof globalThis & { __AUTEUR_OLLAMA_BASE__?: string };
 const ollamaBase = runtimeGlobals.__AUTEUR_OLLAMA_BASE__ || "/ollama";
@@ -10,6 +12,15 @@ const CHAT_ENDPOINT = `${ollamaBase}/api/chat`;
 const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_MODEL_PREFERENCES = ["gemma4:latest", "llama3.1:8b", "qwen2.5vl:3b", "qwen3"];
 const STRING_ARRAY_SCHEMA = { type: "array", items: { type: "string" } } as const;
+const OPTICS_SCHEMA = { type: "object", required: ["focalLengthMm", "tStop", "subjectDistanceMeters"], properties: {
+  cameraBody: { type: "string" }, lensModel: { type: "string" }, focalLengthMm: { type: "number" }, tStop: { type: "number" }, subjectDistanceMeters: { type: "number" },
+} } as const;
+const LIGHTING_GRADE_SCHEMA = { type: "object", required: ["primarySource", "paletteBase", "isDesaturated", "isCrushedBlacks"], properties: {
+  primarySource: { type: "string" }, paletteBase: { type: "string" }, isDesaturated: { type: "boolean" }, isCrushedBlacks: { type: "boolean" },
+} } as const;
+const AUDIO_TRACK_SCHEMA = { type: "object", required: ["soundDesignDirectives"], properties: {
+  spokenText: { type: "string" }, soundDesignDirectives: STRING_ARRAY_SCHEMA,
+} } as const;
 const CONCEPT_SCHEMA = {
   type: "object",
   required: ["concepts"],
@@ -19,7 +30,7 @@ const CONCEPT_SCHEMA = {
     } } },
   },
 } as const;
-const BLUEPRINT_SCHEMA = {
+export const BLUEPRINT_SCHEMA = {
   type: "object",
   required: ["project", "styleBible", "storyBeats", "scenes", "assets"],
   properties: {
@@ -32,8 +43,8 @@ const BLUEPRINT_SCHEMA = {
     storyBeats: STRING_ARRAY_SCHEMA,
     scenes: { type: "array", minItems: 1, items: { type: "object", required: ["id", "title", "slugline", "description", "intent", "duration", "shots"], properties: {
       id: { type: "string" }, title: { type: "string" }, slugline: { type: "string" }, description: { type: "string" }, intent: { type: "string" }, duration: { type: "number" },
-      shots: { type: "array", minItems: 1, items: { type: "object", required: ["id", "title", "slugline", "description", "intent", "duration", "shotSize", "lens", "movement", "startState", "action", "endState", "dialogue", "audioIntent", "continuityLocks", "referenceNeeds"], properties: {
-        id: { type: "string" }, title: { type: "string" }, slugline: { type: "string" }, description: { type: "string" }, intent: { type: "string" }, duration: { type: "number" }, shotSize: { type: "string" }, lens: { type: "string" }, movement: { type: "string" }, startState: { type: "string" }, action: { type: "string" }, endState: { type: "string" }, dialogue: { type: "string" }, audioIntent: { type: "string" }, continuityLocks: STRING_ARRAY_SCHEMA, referenceNeeds: STRING_ARRAY_SCHEMA,
+      shots: { type: "array", minItems: 1, items: { type: "object", required: ["id", "title", "slugline", "description", "intent", "duration", "shotSize", "lens", "movement", "startState", "action", "endState", "continuityLocks", "referenceNeeds"], properties: {
+        id: { type: "string" }, title: { type: "string" }, slugline: { type: "string" }, description: { type: "string" }, intent: { type: "string" }, duration: { type: "number" }, shotSize: { type: "string" }, lens: { type: "string" }, movement: { type: "string" }, startState: { type: "string" }, action: { type: "string" }, endState: { type: "string" }, dialogue: { type: "string" }, audioIntent: { type: "string" }, optics: OPTICS_SCHEMA, imperfectionAnchors: STRING_ARRAY_SCHEMA, lightingGrade: LIGHTING_GRADE_SCHEMA, audioTrack: AUDIO_TRACK_SCHEMA, continuityLocks: STRING_ARRAY_SCHEMA, referenceNeeds: STRING_ARRAY_SCHEMA,
       } } },
     } } },
     assets: { type: "array", items: { type: "object", required: ["id", "name", "type", "description", "continuityLocks", "referenceNeeds"], properties: {
@@ -139,6 +150,10 @@ export interface BlueprintShot {
   endState: string;
   dialogue: string;
   audioIntent: string;
+  optics?: Optics;
+  imperfectionAnchors?: string[];
+  lightingGrade?: LightingGrade;
+  audioTrack?: AudioTrack;
   continuityLocks: string[];
   referenceNeeds: string[];
 }
@@ -275,6 +290,11 @@ function cleanMultiline(value: unknown): string {
 function normalizeShot(value: unknown, sceneIndex: number, shotIndex: number): BlueprintShot {
   if (!isRecord(value)) throw new Error(`Invalid production blueprint: scenes[${sceneIndex}].shots[${shotIndex}] must be an object.`);
   const title = cleanString(value.title, `Shot ${shotIndex + 1}`);
+  const normalized = normalizeUniversalShotV2(value, {
+    primarySource: "Motivated practical key",
+    paletteBase: "Natural neutrals",
+    audioIntent: "UNKNOWN pending playable audio evidence.",
+  });
   return {
     id: cleanString(value.id, slug(title, `shot-${sceneIndex + 1}`, shotIndex)),
     title,
@@ -288,8 +308,11 @@ function normalizeShot(value: unknown, sceneIndex: number, shotIndex: number): B
     startState: cleanString(value.startState, "The prior state is held and readable."),
     action: cleanString(value.action, "One defining action occurs."),
     endState: cleanString(value.endState, "The action resolves into a stable cut point."),
-    dialogue: cleanMultiline(value.dialogue),
-    audioIntent: cleanString(value.audioIntent, "UNKNOWN pending playable audio evidence."),
+    dialogue: cleanMultiline(normalized.dialogue),
+    audioIntent: cleanString(normalized.audioIntent, "UNKNOWN pending playable audio evidence."),
+    optics: normalized.optics,
+    imperfectionAnchors: normalized.imperfectionAnchors,
+    lightingGrade: normalized.lightingGrade,
     continuityLocks: stringList(value.continuityLocks, ["subject identity", "world geometry", "screen direction"]),
     referenceNeeds: stringList(value.referenceNeeds),
   };
@@ -559,7 +582,8 @@ function promptFor(input: ProductionBriefInput, corpusGuidance: CorpusGuidance):
     "- If the brief requests no dialogue (or is explicitly silent), every dialogue field must be empty. If it bans only voice-over, write no narration or V.O. lines but keep diegetic spoken dialogue between characters. If it requests one actor, create exactly one character asset and no second visible character.",
     "- Describe matter and light the way the gold reference does: physically, specifically, 'more real than real'. Ban filler adjectives (beautiful, stunning, amazing, epic).",
     "- Do not use a fixed, preset, default, minimum, or maximum scene count or shot count. Infer structure from the story.",
-    "- The shot field `dialogue` carries verbatim spoken lines for that shot (screenplay-formatted), or an empty string.",
+    "- For each shot, author optics with focalLengthMm, tStop, and subjectDistanceMeters; imperfectionAnchors; and a lightingGrade grounded in the visible setup.",
+    "- audioTrack is a transport shape only: spokenText maps to canonical dialogue and soundDesignDirectives map to canonical audioIntent. Do not repeat identical audio text in both representations.",
     "Follow the enforced JSON response schema. Keep prose concise but concrete so the full production fits in one response.",
     `Production brief: ${JSON.stringify({ brief: input.brief, title: input.title, format: input.format, aspect: input.aspect, duration: input.duration, platform: input.platform, provider: input.provider, audience: input.audience, tone: input.tone, humor: input.humor })}`,
     input.concept ? `Chosen creative concept: ${JSON.stringify(input.concept)}` : "",

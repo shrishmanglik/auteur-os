@@ -11,7 +11,7 @@ class MemoryStorage {
 
 Object.defineProperty(globalThis, "localStorage", { value: new MemoryStorage(), configurable: true });
 
-const { detectPersistenceStatus, isProject, useStudio } = await import("../src/store");
+const { detectPersistenceStatus, isProject, normalizeProject, useStudio } = await import("../src/store");
 const { createProjectFromBrief, exportPacket } = await import("../src/engine.mjs");
 
 function resetStore() {
@@ -74,6 +74,40 @@ test("storage availability is probed instead of assumed", () => {
     setItem() { throw new Error("blocked"); },
     removeItem() {},
   }), "unavailable");
+});
+
+test("v1 projects hydrate with UniversalPacket v2 defaults", () => {
+  const v1 = createProjectFromBrief("A legacy product film", { title: "Legacy" });
+  for (const shot of v1.shots) {
+    delete shot.optics;
+    delete shot.imperfectionAnchors;
+    delete shot.lightingGrade;
+  }
+
+  assert.equal(isProject(v1), true);
+  const hydrated = normalizeProject(v1);
+  for (const shot of hydrated.shots) {
+    assert.ok(shot.optics && shot.optics.focalLengthMm > 0);
+    assert.deepEqual(shot.imperfectionAnchors, []);
+    assert.ok(shot.lightingGrade?.primarySource);
+    assert.equal("audioTrack" in shot, false);
+  }
+});
+
+test("transport audio is canonicalized at the shot write boundary", () => {
+  const state = useStudio.getState();
+  const shot = state.project.shots[0];
+  state.updateShot(shot.id, {
+    audioTrack: {
+      spokenText: "MARA: Keep rolling.",
+      soundDesignDirectives: ["cloth movement", "room tone"],
+    },
+  } as unknown as Parameters<typeof state.updateShot>[1]);
+
+  const saved = useStudio.getState().project.shots[0] as unknown as Record<string, unknown>;
+  assert.equal(saved.dialogue, "MARA: Keep rolling.");
+  assert.equal(saved.audioIntent, "cloth movement; room tone");
+  assert.equal("audioTrack" in saved, false, "transport audio never persists beside canonical audio");
 });
 
 test("deterministic-by-choice builds keep a ready brain status; real fallback marks offline", () => {

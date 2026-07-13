@@ -1,4 +1,6 @@
 // AUTEUR Director — the deterministic writer's room.
+import { inferOpticsFromShotGrammar } from "./universal-packet.mjs";
+
 // Takes an idea + intent and produces: 3 creative concepts -> a screenplay with real
 // dialogue -> a full ProductionBlueprint (scenes, shots, continuity, style, assets).
 // Grounded in the distilled prompt corpus (per-type conventions, verbiage, gold craft).
@@ -434,6 +436,7 @@ export function developBlueprint(input, concept, promptBrain = null, seed = 0) {
     const shots = shotSpecs.map((spec, shotIndex) => {
       const finalShot = shotIndex === shotSpecs.length - 1;
       const carriesDialogue = Boolean(scene.dialogue) && shotIndex === 0;
+      const shotGrammar = { shotSize: spec.size, lens: lensLanguage };
       return {
         id: `shot-${sceneIndex + 1}-${shotIndex + 1}`,
         title: `${scene.beat}${shotSpecs.length > 1 ? ` / ${shotIndex + 1}` : ""}`,
@@ -443,6 +446,14 @@ export function developBlueprint(input, concept, promptBrain = null, seed = 0) {
         duration: perShot,
         shotSize: spec.size,
         lens: lensLanguage,
+        optics: inferOpticsFromShotGrammar(shotGrammar),
+        imperfectionAnchors: [],
+        lightingGrade: {
+          primarySource: lighting,
+          paletteBase: "disciplined neutrals with one signature accent",
+          isDesaturated: /desaturat|monochrome/i.test(`${concept.tone} ${concept.mood}`),
+          isCrushedBlacks: /crushed black/i.test(`${concept.tone} ${concept.mood}`),
+        },
         movement: spec.movement,
         startState: shotIndex === 0 ? (sceneIndex === 0 ? "The world is composed and readable before the idea lands." : "The prior scene's resolved state carries in.") : "Continues the scene's held state.",
         action: scene.action,
