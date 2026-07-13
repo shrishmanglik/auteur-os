@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import type { OSIntelligence, Project, RenderRule, RepairProposal, Scene, Shot, WorkspaceMode } from "./types";
+import type { AudioTrack, OSIntelligence, Project, RenderRule, RepairProposal, Scene, Shot, WorkspaceMode } from "./types";
 import { analyzeCritique, compileShot, createProjectFromBlueprint, createProjectFromBrief, createRepairVersion, deriveReviewStatus, moveItem, syncProjectTiming } from "./engine.mjs";
+import { normalizeUniversalShotV2 } from "./universal-packet.mjs";
 
 const STORAGE_KEY = "auteur-studio-project-v6";
 type PersistenceStorage = Pick<Storage, "setItem" | "removeItem">;
@@ -57,7 +58,26 @@ export function isProject(value: unknown): value is Project {
   return project.deliverables.every((deliverable) => Array.isArray(deliverable.shotIds) && deliverable.shotIds.every((id) => shotIds.has(id)));
 }
 
-function normalizeProject(project: Project): Project {
+type ShotTransportPatch = Partial<Shot> & { audioTrack?: Partial<AudioTrack> };
+
+function normalizeShotWrite(project: Project, shot: Shot, patch: ShotTransportPatch = {}): Shot {
+  const directives = Array.isArray(patch.audioTrack?.soundDesignDirectives)
+    ? patch.audioTrack.soundDesignDirectives.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    : [];
+  const candidate = {
+    ...shot,
+    ...patch,
+    dialogue: patch.dialogue !== undefined ? patch.dialogue : patch.audioTrack?.spokenText ?? shot.dialogue,
+    audioIntent: patch.audioIntent !== undefined ? patch.audioIntent : directives.length ? directives.join("; ") : shot.audioIntent,
+  };
+  return normalizeUniversalShotV2(candidate, {
+    primarySource: project.style,
+    paletteBase: project.mood,
+    audioIntent: project.audio,
+  }) as Shot;
+}
+
+export function normalizeProject(project: Project): Project {
   const next: Project = {
     ...project,
     mood: project.mood || "Restrained confidence",
@@ -66,9 +86,14 @@ function normalizeProject(project: Project): Project {
     audience: project.audience || "General premium audience",
   };
   next.shots = next.shots.map((shot) => {
-    const packet = compileShot(next, shot, []);
+    const normalizedShot = normalizeUniversalShotV2(shot, {
+      primarySource: next.style,
+      paletteBase: next.mood,
+      audioIntent: shot.audioIntent || next.audio,
+    }) as Shot;
+    const packet = compileShot(next, normalizedShot, []);
     return {
-      ...shot,
+      ...normalizedShot,
       packetDirty: Boolean(shot.packetDirty),
       review: { ...shot.review, status: deriveReviewStatus(shot.review) },
       versions: shot.versions.map((version) => ({
@@ -296,7 +321,7 @@ export const useStudio = create<StudioState>((set, get) => {
       set({ project, selectedShotId: project.shots[0].id, selectedSceneId: project.scenes[0].id, mode: "overview", newProjectOpen: false, newProjectPreset: null, previewing: false, playhead: 0, brainStatus, brainModel, analysisStage: developed ? "Production passed creative QC" : "Corpus Draft ready", notice: developed ? "Production developed: treatment, script, storyboard, continuity, sound, and Prompt Package passed creative QC." : "Corpus Draft ready: every production tab is available for review, editing, pre-flight, and export." });
     },
     updateShot: (shotId, patch) => set((state) => {
-      const project = { ...state.project, shots: state.project.shots.map((shot) => shot.id === shotId ? { ...shot, ...patch, packetDirty: true } : shot), updatedAt: new Date().toISOString() };
+      const project = { ...state.project, shots: state.project.shots.map((shot) => shot.id === shotId ? normalizeShotWrite(state.project, shot, { ...(patch as ShotTransportPatch), packetDirty: true }) : shot), updatedAt: new Date().toISOString() };
       return { project: syncProjectTiming(project) };
     }),
     updateProject: (patch) => set((state) => ({ project: { ...state.project, ...patch, shots: state.project.shots.map((shot) => ({ ...shot, packetDirty: true })), updatedAt: new Date().toISOString() } })),

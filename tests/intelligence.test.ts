@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   analyzeProductionBrief,
+  BLUEPRINT_SCHEMA,
   evaluateBlueprintAgainstBrief,
   parseProductionBlueprintResponse,
   refineShotDirection,
@@ -137,6 +138,46 @@ test("normalizes strings, durations, lists, and missing identifiers", () => {
   assert.match(blueprint.scenes[0].shots[0].id, /^shot-1-1-/);
   assert.deepEqual(blueprint.styleBible.palette, ["amber", "graphite"]);
   assert.deepEqual(blueprint.scenes[0].shots[0].continuityLocks, ["bottle geometry"]);
+});
+
+test("normalizes junk model optics and folds audioTrack into canonical audio fields", () => {
+  const raw = rawBlueprint([1]);
+  const shot = raw.scenes[0].shots[0] as Record<string, unknown>;
+  delete shot.dialogue;
+  delete shot.audioIntent;
+  shot.optics = { cameraBody: "  Alexa 35  ", lensModel: " ", focalLengthMm: "not-a-number", tStop: -1, subjectDistanceMeters: null };
+  shot.imperfectionAnchors = ["skin texture", " skin texture ", null];
+  shot.lightingGrade = { primarySource: " ", paletteBase: "graphite", isDesaturated: "yes", isCrushedBlacks: true };
+  shot.audioTrack = { spokenText: "  MARA: Keep rolling.  ", soundDesignDirectives: ["cloth movement", " room tone "] };
+
+  const blueprint = parseProductionBlueprintResponse(JSON.stringify(raw));
+  const normalized = blueprint.scenes[0].shots[0];
+  assert.deepEqual(normalized.optics, {
+    cameraBody: "Alexa 35",
+    lensModel: "100mm macro",
+    focalLengthMm: 100,
+    tStop: 2.8,
+    subjectDistanceMeters: 0.45,
+  });
+  assert.deepEqual(normalized.imperfectionAnchors, ["skin texture"]);
+  assert.deepEqual(normalized.lightingGrade, {
+    primarySource: "Motivated practical key",
+    paletteBase: "graphite",
+    isDesaturated: false,
+    isCrushedBlacks: true,
+  });
+  assert.equal(normalized.dialogue, "MARA: Keep rolling.");
+  assert.equal(normalized.audioIntent, "cloth movement; room tone");
+  assert.equal("audioTrack" in normalized, false, "transport audio must not duplicate canonical audio state");
+});
+
+test("Ollama blueprint schema exposes every optional UniversalPacket v2 shot field", () => {
+  const schema = BLUEPRINT_SCHEMA as unknown as { properties: { scenes: { items: { properties: { shots: { items: { required: string[]; properties: Record<string, unknown> } } } } } } };
+  const shotSchema = schema.properties.scenes.items.properties.shots.items;
+  for (const field of ["optics", "imperfectionAnchors", "lightingGrade", "audioTrack"]) {
+    assert.ok(field in shotSchema.properties, `${field} is exposed to Ollama JSON mode`);
+    assert.equal(shotSchema.required.includes(field), false, `${field} remains optional for v1 compatibility`);
+  }
 });
 
 test("uses a clearly marked deterministic fallback and reports staged status", async () => {
