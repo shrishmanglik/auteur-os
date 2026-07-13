@@ -28,6 +28,19 @@ test("parseIdea removes duration and format noise instead of making it the subje
   assert.doesNotMatch(parking.subject, /second/i);
 });
 
+test("parseIdea honors explicit hero, setting, and object overrides", () => {
+  const idea = parseIdea("A vague product story in a studio", { hero: "Mara Voss", setting: "an abandoned planetarium", object: "a cracked brass compass" });
+  assert.equal(idea.subject, "Mara Voss");
+  assert.equal(idea.world, "an abandoned planetarium");
+  assert.equal(idea.anchor, "a cracked brass compass");
+  const concepts = ideateConcepts({ ...INPUT, ideaOverrides: { hero: "Mara Voss", setting: "an abandoned planetarium", object: "a cracked brass compass" } }, 0);
+  assert.ok(concepts.every((concept) => concept.groundingFramework), "every offline concept identifies its corpus framework");
+  assert.ok(concepts.some((concept) => /Mara Voss|cracked brass compass|abandoned planetarium/i.test(`${concept.logline} ${concept.twist}`)));
+  const screenplay = writeScreenplay({ ...INPUT, ideaOverrides: { hero: "Mara Voss", setting: "an abandoned planetarium", object: "a cracked brass compass" } }, concepts[0], 0);
+  assert.ok(screenplay.cast.includes("MARA VOSS"));
+  assert.ok(screenplay.scenes.every((scene) => /ABANDONED PLANETARIUM/.test(scene.slugline)));
+});
+
 test("brief constraints prevent forbidden speech and extra cast in the offline draft", () => {
   const input = { idea: "A 30 second perfume film called After Midnight. One actor, one location, no dialogue or voice-over.", format: "Commercial film", duration: 30, humor: "dry" };
   assert.deepEqual(extractBriefConstraints(input.idea), { noDialogue: true, noVoiceover: true, actorCount: 1, oneLocation: true, loopable: false, notSalesy: false, mustBeFunny: false });

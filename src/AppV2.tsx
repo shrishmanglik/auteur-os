@@ -7,7 +7,7 @@ import {
 import { deriveCorpusGuidance, embedPacketMedia, exportPacket } from "./engine.mjs";
 import { DIRECTOR_FORMATS, developBlueprint, ideateConcepts, writeScreenplay } from "./director.mjs";
 import type { DirectorConcept, DirectorInput, ScreenplayScene } from "./director.mjs";
-import { analyzeProductionBrief, discoverLocalModelRoles, refineShotDirection } from "./intelligence";
+import { analyzeProductionBrief, discoverLocalModelRoles, ideateProductionConcepts, refineShotDirection } from "./intelligence";
 import { classifyIntakeFiles, elevationInputForProject, preserveAuthoredScriptInBlueprint } from "./intake";
 import { productionActionFor } from "./production-flow";
 import { useStudio } from "./store";
@@ -453,6 +453,9 @@ function NewProductionDialog() {
   const [useBrain, setUseBrain] = useState(true);
   const [conceptSeed, setConceptSeed] = useState(0);
   const [concepts, setConcepts] = useState<DirectorConcept[]>([]);
+  const [conceptSource, setConceptSource] = useState<"ollama" | "deterministic-fallback">("deterministic-fallback");
+  const [conceptFallbackReason, setConceptFallbackReason] = useState("");
+  const [ideaOverrides, setIdeaOverrides] = useState({ hero: "", setting: "", object: "" });
   const [chosen, setChosen] = useState<DirectorConcept | null>(null);
   const [scenes, setScenes] = useState<ScreenplayScene[]>([]);
   const [screenplayMeta, setScreenplayMeta] = useState<{ dialogueMode: string; cast: string[]; duration: number } | null>(null);
@@ -463,7 +466,7 @@ function NewProductionDialog() {
   const runRef = useRef(0);
   const promptBrain = osIntelligence?.prompt_brain || null;
   const platform = format === "Social campaign" || format === "A-roll monologue" ? "Instagram / TikTok" : format === "Image campaign" ? "Digital + social" : "Cinema + web";
-  const directorInput = (): DirectorInput => ({ idea: brief, title, format, aspect, duration, platform, provider, audience, tone, humor });
+  const directorInput = (): DirectorInput => ({ idea: brief, title, format, aspect, duration, platform, provider, audience, tone, humor, ideaOverrides });
   const applyFormat = (next: string) => {
     setFormat(next);
     const preset = DIRECTOR_FORMATS.find((item) => item.key === next);
@@ -484,6 +487,9 @@ function NewProductionDialog() {
     setTitle("Untitled production");
     setFiles([]);
     setConcepts([]);
+    setConceptSource("deterministic-fallback");
+    setConceptFallbackReason("");
+    setIdeaOverrides({ hero: "", setting: "", object: "" });
     setChosen(null);
     setScenes([]);
     setScreenplayMeta(null);
@@ -538,12 +544,41 @@ function NewProductionDialog() {
     setFiles(accepted);
     if (incoming.length > 12 || oversized.length) setNotice(`Reference limits applied: maximum 12 images and 10 MB per image. ${accepted.length} accepted.`);
   };
-  const ideate = (seed = conceptSeed) => {
+  const ideate = async (seed = conceptSeed) => {
     if (!brief.trim()) return;
-    setConcepts(ideateConcepts(directorInput(), seed) as DirectorConcept[]);
     setStep("concepts");
+    if (brainStatus !== "ready") {
+      setConcepts(ideateConcepts(directorInput(), seed) as DirectorConcept[]);
+      setConceptSource("deterministic-fallback");
+      setConceptFallbackReason("Local model host is offline.");
+      return;
+    }
+    const runId = ++runRef.current;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setWorking(true);
+    setConcepts([]);
+    setConceptFallbackReason("");
+    setStage("The writer's room is developing three directions");
+    setBrainState({ brainStatus: "analyzing", brainModel: model, analysisStage: "Developing three original concepts" });
+    try {
+      const result = await ideateProductionConcepts({ ...directorInput(), model }, { seed, timeoutMs: 60_000, signal: controller.signal, onStatus: (_status, detail) => { if (runRef.current === runId) setStage(detail); } });
+      if (controller.signal.aborted || runRef.current !== runId) return;
+      setConcepts(result.concepts);
+      setConceptSource(result.source);
+      setConceptFallbackReason(result.fallbackReason || "");
+      setBrainState({ brainStatus: result.model ? "ready" : "offline", brainModel: result.model || brainModel, analysisStage: result.source === "ollama" ? "Three local-model concepts ready" : "Corpus Blueprints ready after local-model response fallback" });
+      if (result.fallbackReason) setNotice(`The local writer's room could not finish (${result.fallbackReason}). Three Corpus Blueprints are ready instead; your brief was preserved.`);
+    } finally {
+      if (runRef.current === runId) { abortRef.current = null; setWorking(false); setStage("The Director is ready"); }
+    }
   };
-  const reroll = () => { const seed = conceptSeed + 1; setConceptSeed(seed); ideate(seed); };
+  const reroll = () => { const seed = conceptSeed + 1; setConceptSeed(seed); void ideate(seed); };
+  const customizeBlueprints = (field: "hero" | "setting" | "object", value: string) => {
+    const next = { ...ideaOverrides, [field]: value };
+    setIdeaOverrides(next);
+    setConcepts(ideateConcepts({ ...directorInput(), ideaOverrides: next }, conceptSeed) as DirectorConcept[]);
+  };
   const choose = (concept: DirectorConcept) => {
     const screenplay = writeScreenplay(directorInput(), concept, conceptSeed);
     setChosen(concept);
@@ -601,11 +636,14 @@ function NewProductionDialog() {
         <label><span>Creative intelligence</span><select value={model} onChange={(event) => setModel(event.target.value)}>{(brainModels.length ? brainModels : [model]).map((item) => <option key={item}>{item}</option>)}</select></label>
       </div>
       <label className="v2-upload"><input type="file" accept="image/*" multiple onChange={(event) => selectFiles(Array.from(event.target.files || []))} /><UploadSimple size={20} /><span><strong>{files.length ? `${files.length} references ready` : "Add characters, products, locations, or style references"}</strong><small>{files.length ? files.map((file) => file.name).join(" / ") : "Up to 12 images, 10 MB each. Images become named ingredients."}</small></span></label>
-      <footer><div aria-live="polite"><Brain size={17} weight="fill" /><span>{working ? stage : brainStatus === "ready" ? `Writer's room ready / ${brainModel}` : "Local brain offline - output will remain a draft"}</span></div><button type="button" className="v2-ghost" disabled={!brief.trim() || working} onClick={() => ideate()}><MagicWand size={16} /> Explore directions</button><button type="button" disabled={!brief.trim() || working} onClick={() => void build()}><Sparkle size={18} /> {working ? "Developing production" : "Develop production"}</button></footer>
+      <footer><div aria-live="polite"><Brain size={17} weight="fill" /><span>{working ? stage : brainStatus === "ready" ? `Writer's room ready / ${brainModel}` : "Local brain offline - output will remain a draft"}</span></div><button type="button" className="v2-ghost" disabled={!brief.trim() || working} onClick={() => void ideate()}><MagicWand size={16} /> Explore directions</button><button type="button" disabled={!brief.trim() || working} onClick={() => void build()}><Sparkle size={18} /> {working ? "Developing production" : "Develop production"}</button></footer>
     </>}
     {step === "concepts" && <>
-      <div className="v2-concept-grid">{concepts.map((concept) => <button type="button" key={concept.id} className="v2-concept-card" onClick={() => choose(concept)}><small>{concept.name}</small><strong>{concept.logline}</strong><p><b>The twist:</b> {concept.twist}</p><p><b>Comedy:</b> {concept.humor}</p><em>{concept.thesis}</em><span className="v2-concept-cta">Write this one <ArrowRight size={14} /></span></button>)}</div>
-      <footer><button type="button" className="v2-ghost" onClick={() => setStep("brief")}>Back to idea</button><button type="button" className="v2-ghost" onClick={reroll}><MagicWand size={16} /> Pitch 3 different concepts</button></footer>
+      {working && !concepts.length ? <div className="v2-concept-loading" role="status"><Brain size={22} weight="fill" /><strong>Developing three directions</strong><span>{stage}</span></div> : <>
+        {conceptSource === "deterministic-fallback" && <section className="v2-blueprint-customizer"><header><span><strong>Customize the Corpus Blueprints</strong><small>{conceptFallbackReason || "Grounded in AUTEUR's deterministic story frameworks."}</small></span></header><div><label>Hero name<input aria-label="Blueprint hero name" value={ideaOverrides.hero} onChange={(event) => customizeBlueprints("hero", event.target.value)} placeholder="Mara, the founder..." /></label><label>Setting<input aria-label="Blueprint setting" value={ideaOverrides.setting} onChange={(event) => customizeBlueprints("setting", event.target.value)} placeholder="After-hours museum..." /></label><label>Key object<input aria-label="Blueprint key object" value={ideaOverrides.object} onChange={(event) => customizeBlueprints("object", event.target.value)} placeholder="A cracked stopwatch..." /></label></div></section>}
+        <div className="v2-concept-grid">{concepts.map((concept) => <button type="button" key={concept.id} className={`v2-concept-card ${conceptSource === "deterministic-fallback" ? "blueprint" : ""}`} onClick={() => choose(concept)}>{conceptSource === "deterministic-fallback" ? <span className="v2-blueprint-label">Corpus Blueprint</span> : null}<small>{concept.name}</small>{conceptSource === "deterministic-fallback" && <span className="v2-framework">{concept.groundingFramework || `Corpus lens / ${concept.lens}`}</span>}<strong>{concept.logline}</strong><p><b>The twist:</b> {concept.twist}</p><p><b>Comedy:</b> {concept.humor}</p><em>{concept.thesis}</em><span className="v2-concept-cta">Write this one <ArrowRight size={14} /></span></button>)}</div>
+      </>}
+      <footer><button type="button" className="v2-ghost" disabled={working} onClick={() => setStep("brief")}>Back to idea</button><button type="button" className="v2-ghost" disabled={working} onClick={reroll}><MagicWand size={16} /> Pitch 3 different concepts</button></footer>
     </>}
     {step === "script" && chosen && <>
       <div className="v2-script-head"><strong>{chosen.name}</strong><span>{scenes.length} scenes / {totalScripted}s scripted{screenplayMeta?.cast.length ? ` / cast: ${screenplayMeta.cast.join(", ")}` : ""}</span></div>
