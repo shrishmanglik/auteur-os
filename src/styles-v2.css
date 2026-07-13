@@ -291,6 +291,17 @@ button { color:inherit; }
   .v2-shell:has(.v4-next-action) .v2-notice { right: 10px; bottom: 78px; left: 10px; max-width: none; }
 }
 
+.v2-anchor-control { margin:12px 0; padding:9px; border:1px solid var(--v2-line); background:#121516; }
+.v2-anchor-control header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.v2-anchor-control header > span { color:var(--v2-muted); font-size:7px; text-transform:uppercase; letter-spacing:.6px; }
+.v2-anchor-control header > button { border:1px solid var(--v2-line2); border-radius:3px; background:transparent; color:var(--v2-muted); padding:3px 6px; font-size:7px; cursor:pointer; }
+.v2-anchor-control header > button.active { border-color:#7c6534; background:var(--v2-gold-soft); color:var(--v2-gold2); }
+.v2-anchor-control > small { display:block; margin:5px 0 8px; color:var(--v2-dim); font-size:7px; }
+.v2-anchor-chips { display:flex; flex-wrap:wrap; gap:5px; }
+.v2-anchor-chips button { max-width:100%; border:1px solid var(--v2-line2); border-radius:3px; background:#0d1011; color:#a8a8a2; padding:5px 7px; font-size:7px; line-height:1.25; text-align:left; cursor:pointer; }
+.v2-anchor-chips button.selected { border-color:#8c7137; background:var(--v2-gold-soft); color:#e3cc94; }
+.v2-anchor-chips button:focus-visible,.v2-anchor-control header > button:focus-visible { outline:1px solid var(--v2-gold); outline-offset:2px; }
+
 @media (min-width: 701px) and (max-width: 1009px) {
   .v4-next-action, .mode-storyboard .v4-next-action { right: 14px; left: 14px; }
   .v2-source-truth { top:65px; right:8px; bottom:auto; left:auto; display:flex; padding:3px 5px; background:rgba(9,10,11,.9); }

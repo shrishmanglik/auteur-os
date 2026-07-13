@@ -1,0 +1,233 @@
+{
+  "schema": "auteur-imperfection-anchor-bank/v1",
+  "generatedAt": "2026-07-13T00:00:00.000Z",
+  "selectionPolicy": {
+    "minimum": 2,
+    "default": 3,
+    "maximum": 4,
+    "providerClaims": "UNKNOWN",
+    "productLimits": "UNKNOWN"
+  },
+  "sources": [
+    {
+      "file": "public/data/auteur-prompt-brain.json",
+      "sha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115"
+    },
+    {
+      "file": "public/data/auteur-render-brain.json",
+      "sha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803"
+    }
+  ],
+  "entries": [
+    {
+      "id": "anchor.product.dust-motes",
+      "anchorText": "dust motes in light",
+      "contentTypes": ["product", "product_ad"],
+      "contextTags": ["industrial", "workshop", "atmosphere", "light"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.product.physics[5]", "exactPhrase": "dust motes in light", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.product.brushed-metal",
+      "anchorText": "brushed metal",
+      "contentTypes": ["product", "product_ad"],
+      "contextTags": ["industrial", "machinery", "material", "metal"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.product.physics[7]", "exactPhrase": "brushed metal", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.product.shading-reflections",
+      "anchorText": "realistic shading and reflections",
+      "contentTypes": ["product", "product_ad"],
+      "contextTags": ["packaging", "reflective", "glass", "metal", "material"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.product.verbiage_bank[10]", "exactPhrase": "realistic shading and reflections", "recordIds": ["gen_01jp8scwhyecgs8amznmkqj1ds"], "observedCount": 7 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.portrait.real-skin",
+      "anchorText": "real pores, peach-fuzz, uneven tone",
+      "contentTypes": ["character", "character_scene", "editorial", "music_fashion", "aroll"],
+      "contextTags": ["portrait", "character", "skin", "face", "close-up", "performance"],
+      "evidence": [{ "class": "RENDER_REPAIR", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.failure_rules[13]", "exactPhrase": "demand real pores, peach-fuzz, uneven tone", "recordIds": ["gen_01jh6h2ca7fjgskb90ms4gy55h"], "observedCount": 100 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.portrait.age-detail",
+      "anchorText": "detailed age spots and wrinkles",
+      "contentTypes": ["character", "character_scene", "editorial", "aroll"],
+      "contextTags": ["portrait", "elderly", "hand", "skin", "macro"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.gold_exemplars[59].excerpt", "exactPhrase": "An elderly man's hand, showing detailed age spots and wrinkles", "recordIds": [], "observedCount": null }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.portrait.micro-expression",
+      "anchorText": "skin and micro-expression detail",
+      "contentTypes": ["character", "character_scene", "editorial", "music_fashion", "aroll"],
+      "contextTags": ["portrait", "character", "skin", "face", "performance", "dialogue"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.human.physics[7]", "exactPhrase": "skin and micro-expression detail", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.performance.natural-physics",
+      "anchorText": "natural hands, faces, and cloth physics",
+      "contentTypes": ["character", "character_scene", "editorial", "music_fashion", "aroll"],
+      "contextTags": ["dialogue", "performance", "hands", "face", "wardrobe", "cloth"],
+      "evidence": [{ "class": "RENDER_GOLD", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.aroll.gold_exemplars[8]", "exactPhrase": "natural hands, faces, and cloth physics", "recordIds": ["gen_01jr7vjk4weyp8zk5sd18gjdp5"], "observedCount": 1 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.automotive.operator-presence",
+      "anchorText": "organic camera movement with subtle human imperfection",
+      "contentTypes": ["automotive"],
+      "contextTags": ["documentary", "camera", "operator", "tracking", "handheld"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.gold_exemplars[13].excerpt", "exactPhrase": "organic camera movement with subtle human imperfection", "recordIds": [], "observedCount": null }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.automotive.tire-deformation",
+      "anchorText": "tire sidewall deformation",
+      "contentTypes": ["automotive"],
+      "contextTags": ["load", "cornering", "tire", "wheel", "contact", "suspension"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.automotive.physics[7]", "exactPhrase": "tire sidewall deformation", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.automotive.asphalt-texture",
+      "anchorText": "asphalt micro texture",
+      "contentTypes": ["automotive"],
+      "contextTags": ["road", "surface", "stunt", "tire", "contact"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.stunt.physics[3]", "exactPhrase": "asphalt micro texture", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.automotive.wet-asphalt",
+      "anchorText": "wet asphalt",
+      "contentTypes": ["automotive"],
+      "contextTags": ["rain", "road", "wet", "surface", "reflections"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.automotive.verbiage_bank[7]", "exactPhrase": "wet asphalt", "recordIds": ["gen_01k1q9z4kdfeyv4ckffre268wd"], "observedCount": 5 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.automotive.water-spray",
+      "anchorText": "water spray",
+      "contentTypes": ["automotive"],
+      "contextTags": ["rain", "wet", "road", "tire", "contact", "water"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.automotive.verbiage_bank[8]", "exactPhrase": "water spray", "recordIds": ["gen_01k6r16h7seye92r5fcvzsesyt"], "observedCount": 5 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.food.natural-textures",
+      "anchorText": "natural textures of food",
+      "contentTypes": ["food", "food_ad"],
+      "contextTags": ["culinary", "macro", "ingredient", "surface", "food"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.food.verbiage_bank[6]", "exactPhrase": "natural textures of food", "recordIds": ["gen_01jp8q64ktej3s38tx3gfe85rh"], "observedCount": 28 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.food.steam",
+      "anchorText": "steam rising",
+      "contentTypes": ["food", "food_ad"],
+      "contextTags": ["beverage", "heat", "atmosphere", "steam", "hot"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.food.verbiage_bank[24]", "exactPhrase": "steam rising", "recordIds": ["gen_01jp8nr5ybefhrgvd350ev5ah4"], "observedCount": 11 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.food.croissant-layers",
+      "anchorText": "realistic textures of croissant layers",
+      "contentTypes": ["food", "food_ad"],
+      "contextTags": ["bakery", "pastry", "croissant", "macro", "layers"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.food.verbiage_bank[29]", "exactPhrase": "realistic textures of croissant layers", "recordIds": ["gen_01jppgncbkepqt9nq1b7jz230k"], "observedCount": 10 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.vfx.nebula-dust",
+      "anchorText": "nebula dust",
+      "contentTypes": ["vfx", "vfx_sequence"],
+      "contextTags": ["cosmic", "space", "particulate", "atmosphere", "dust"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.vfx.physics[1]", "exactPhrase": "nebula dust", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.vfx.particle-streams",
+      "anchorText": "particle streams",
+      "contentTypes": ["vfx", "vfx_sequence"],
+      "contextTags": ["particles", "energy", "cosmic", "motion", "atmosphere"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.vfx.physics[2]", "exactPhrase": "particle streams", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.vfx.city-mist",
+      "anchorText": "foggy city mist",
+      "contentTypes": ["vfx", "vfx_sequence"],
+      "contextTags": ["city", "fog", "mist", "atmosphere", "night"],
+      "evidence": [{ "class": "PROMPT_CORPUS", "sourceFile": "public/data/auteur-prompt-brain.json", "sourceSha256": "FE49DEC465F22F3BE9C6E48176B8F860D4DBC13FE0A12C945219CF6DCB4D2115", "jsonPath": "$.content_types.vfx.physics[3]", "exactPhrase": "foggy city mist", "recordIds": [], "observedCount": null }],
+      "confidence": "MEDIUM",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.nature.floating-particles",
+      "anchorText": "floating particles",
+      "contentTypes": ["nature"],
+      "contextTags": ["underwater", "environment", "particulate", "atmosphere"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.nature.verbiage_bank[12]", "exactPhrase": "floating particles", "recordIds": ["gen_01jqhsske0fnzsvvswgt9gprd4"], "observedCount": 4 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.nature.dew-leaf",
+      "anchorText": "dew-covered green leaf",
+      "contentTypes": ["nature"],
+      "contextTags": ["botanical", "macro", "moisture", "leaf", "dew"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.macro.verbiage_bank[18]", "exactPhrase": "dew-covered green leaf", "recordIds": ["gen_01jqhrkqf4fnrvf3cyyezbhq72"], "observedCount": 4 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    },
+    {
+      "id": "anchor.nature.water-droplets",
+      "anchorText": "Water droplets shimmer",
+      "contentTypes": ["nature"],
+      "contextTags": ["botanical", "macro", "water", "moisture", "refractive"],
+      "evidence": [{ "class": "RENDER_OBSERVATION", "sourceFile": "public/data/auteur-render-brain.json", "sourceSha256": "DFB0BDFBA00AA30B53DD106AB16C422B4B61D86592C0B63FA646B7BBAE33C803", "jsonPath": "$.content_types.macro.verbiage_bank[19]", "exactPhrase": "Water droplets shimmer", "recordIds": ["gen_01jqhrkqf4fnrvf3cyyezbhq72"], "observedCount": 4 }],
+      "confidence": "HIGH",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN"
+    }
+  ]
+}
