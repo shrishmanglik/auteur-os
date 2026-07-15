@@ -27,8 +27,11 @@ test("anchor bank keeps every phrase bound to immutable corpus evidence", async 
   assert.ok(bank.entries.length >= 12);
   for (const source of bank.sources) {
     const bytes = await readFile(new URL(`../${source.file}`, import.meta.url));
-    assert.equal(createHash("sha256").update(bytes).digest("hex").toUpperCase(), source.sha256);
-    sources.set(source.file, JSON.parse(bytes.toString("utf8")));
+    // Pins are computed over LF-normalized content so git autocrlf checkouts
+    // (which rewrite line endings per platform) can never break the evidence chain.
+    const canonical = bytes.toString("utf8").replace(/\r\n/g, "\n");
+    assert.equal(createHash("sha256").update(canonical, "utf8").digest("hex").toUpperCase(), source.sha256);
+    sources.set(source.file, JSON.parse(canonical));
   }
   for (const entry of bank.entries) {
     assert.ok(entry.anchorText.trim());
