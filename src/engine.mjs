@@ -1,4 +1,5 @@
 import { normalizeUniversalShotV2, opticsToProse } from "./universal-packet.mjs";
+import { resolveImperfectionAnchors } from "./imperfection-anchors.mjs";
 
 const uid = (prefix = "id") => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 // Canonical duration rounding: every stored or compared duration sum passes through this,
@@ -222,6 +223,10 @@ export function compileShot(project, shot, renderRules = [], intelligence = null
     ...(shot.continuityLocks || []),
   ];
   const guidance = deriveCorpusGuidance(project, intelligence);
+  const imperfectionAnchors = resolveImperfectionAnchors(project, shot, guidance.route);
+  const imperfectionClause = imperfectionAnchors.length
+    ? `Physical imperfection anchors: ${imperfectionAnchors.join(", ")}.`
+    : "";
   const intelligenceSignature = JSON.stringify({
     promptRule: guidance.promptRule,
     storyPattern: guidance.storyPattern,
@@ -239,6 +244,7 @@ export function compileShot(project, shot, renderRules = [], intelligence = null
     `${shot.shotSize}. ${opticsProse} Movement: ${shot.movement}.`,
     `${project.style}; ${project.mood}; ${project.realism}; ${project.quality}. ${project.worldRule}`,
     guidance.available ? `Render-proven style grammar: ${styleGrammar}.` : "",
+    imperfectionClause,
     `Continuity locks: ${locks.join(", ") || "project references and prior-frame state"}.`,
     "Compose one clean editorial frame with readable silhouette, motivated light, credible materials, and no text or watermark.",
   ].filter(Boolean).join(" ");
@@ -263,6 +269,7 @@ export function compileShot(project, shot, renderRules = [], intelligence = null
     guidance.available ? `Story architecture: ${guidance.storyPattern}${guidance.storyBeats.length ? `; sequence beats: ${guidance.storyBeats.join(" -> ")}` : ""}.` : "",
     guidance.available ? `Domain playbook: ${guidance.domainPlaybook}.` : "",
     guidance.available ? `Corpus prompt rule: ${guidance.promptRule}` : "",
+    imperfectionClause,
     evidenceRules.length ? `Render-derived guards: ${evidenceRules.join("; ")}.` : "",
     guidance.failureRepairs.length ? `Failure prevention: ${guidance.failureRepairs.join("; ")}.` : "",
     repairs.length ? `Active repairs: ${repairs.join("; ")}.` : "",
@@ -287,6 +294,7 @@ export function compileShot(project, shot, renderRules = [], intelligence = null
   const negativePrompt = [
     "No identity drift, face substitution, wardrobe changes, or object-count changes.",
     "No geometry morphing, extra parts, floating contact, sliding, interpenetration, or implausible material response.",
+    "No waxy or plastic skin, airbrushed faces, generic stock-footage look, or over-polished stock imagery.",
     "No generated typography, logos, pseudo-text, subtitles, provider marks, or watermarks in the render plate.",
     "No unrequested montage, cutaway, camera change, aspect change, or missing held final frame.",
   ].join(" ");
