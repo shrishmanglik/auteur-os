@@ -43,6 +43,37 @@ test("shot edits synchronize timing, block stale export, and compile all packets
   assert.doesNotThrow(() => exportPacket(compiled.project));
 });
 
+test("corpus wording swaps compile pending edits and historical selections before clearing dirty state", () => {
+  const project = resetStore();
+  useStudio.setState({
+    project: {
+      ...project,
+      provider: "Veo 3.1 / Flow",
+      shots: project.shots.map((shot) => ({ ...shot, provider: "Veo 3.1 / Flow" })),
+    },
+  });
+  const originalVersionId = useStudio.getState().project.shots[0].activeVersionId!;
+  const shotId = useStudio.getState().project.shots[0].id;
+
+  useStudio.getState().updateShot(shotId, { action: "USER EDIT MUST SURVIVE: ignition wakes the car" });
+  useStudio.getState().applySafetySwap(shotId, "safety.veo.ignition");
+  const afterEdit = useStudio.getState().project.shots[0];
+  const editVersion = afterEdit.versions.find((version) => version.id === afterEdit.activeVersionId)!;
+  assert.equal(afterEdit.packetDirty, false);
+  assert.match(editVersion.videoPrompt, /USER EDIT MUST SURVIVE/);
+  assert.doesNotMatch(editVersion.videoPrompt, /ignition/i);
+  assert.match(editVersion.videoPrompt, /headlight\/DRL activation/i);
+
+  useStudio.getState().setActiveVersion(shotId, originalVersionId);
+  useStudio.getState().updateShot(shotId, { action: "HISTORICAL REBASE MUST SURVIVE: ignition starts the move" });
+  useStudio.getState().applySafetySwap(shotId, "safety.veo.ignition");
+  const afterHistorical = useStudio.getState().project.shots[0];
+  const historicalVersion = afterHistorical.versions.find((version) => version.id === afterHistorical.activeVersionId)!;
+  assert.equal(afterHistorical.packetDirty, false);
+  assert.match(historicalVersion.videoPrompt, /HISTORICAL REBASE MUST SURVIVE/);
+  assert.doesNotMatch(historicalVersion.videoPrompt, /ignition/i);
+});
+
 test("QC requires attached evidence and reaches pass only when both gates pass", () => {
   const shotId = useStudio.getState().project.shots[0].id;
   useStudio.getState().analyzeReview(shotId);

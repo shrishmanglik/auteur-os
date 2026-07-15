@@ -36,6 +36,27 @@ export interface ShotVersion {
   negativePrompt: string;
   qcGates: string[];
   intelligenceSignature: string;
+  safetyHits?: SafetyLexiconFinding[];
+}
+
+export interface SafetyLexiconFinding {
+  id: string;
+  entryId: string;
+  term: string;
+  replacement: string;
+  note: string;
+  provider: string;
+  field: string;
+  occurrences: number;
+  evidence: Array<{
+    class: "PROMPT_CORPUS_OBSERVED_WORKFLOW";
+    role: "term" | "replacement" | "compactReplacement" | "predicateReplacement";
+    sourceFile: string;
+    sourceSha256: string;
+    section: string;
+    exactPhrase: string;
+    exactPhraseSha256: string;
+  }>;
 }
 
 export interface ShotReview {

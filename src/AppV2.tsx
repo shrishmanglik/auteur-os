@@ -14,6 +14,7 @@ import { productionActionFor } from "./production-flow";
 import { noticePresentation } from "./ui-language";
 import { useStudio } from "./store";
 import { normalizeUniversalShotV2, opticsToProse } from "./universal-packet.mjs";
+import { scanProjectSafety, scanSafetyLexicon } from "./safety-lexicon.mjs";
 import type { Project, Shot, WorkspaceMode } from "./types";
 import "./styles-v2.css";
 
@@ -128,7 +129,11 @@ function ProductionActionBar() {
       if (action.kind === "navigate" && action.target) return setMode(action.target);
       if (action.kind === "preflight") {
         compileAllShots();
-        setNotice("Pre-flight complete. Every shot Prompt Package is current and ready for inspection.");
+        const findings = scanProjectSafety(useStudio.getState().project);
+        const warningCount = new Set(findings.map((finding) => `${finding.shotId}:${finding.entryId}`)).size;
+        setNotice(warningCount
+          ? `Pre-flight found ${warningCount} corpus vocabulary warning${warningCount === 1 ? "" : "s"}. Review the flagged shots before handoff.`
+          : "Pre-flight complete. Every shot Prompt Package is current and ready for inspection.");
         if (action.target) setMode(action.target);
         return;
       }
@@ -449,8 +454,11 @@ function PromptsWorkspace() {
 }
 
 function ReviewWorkspace() {
-  const { project, selectedShotId, updateReview, attachRender, analyzeReview, toggleProposal, applyRepairs } = useStudio();
+  const { project, selectedShotId, updateReview, attachRender, analyzeReview, toggleProposal, applyRepairs, applySafetySwap } = useStudio();
   const shot = project.shots.find((item) => item.id === selectedShotId)!;
+  const activeVersion = shot.versions.find((item) => item.id === shot.activeVersionId) || shot.versions[0];
+  const safetyHits = scanSafetyLexicon(activeVersion, shot.provider || project.provider);
+  const safetyEntries = [...new Map(safetyHits.map((hit) => [hit.entryId, hit])).values()];
   const input = useRef<HTMLInputElement>(null);
   const attach = (file?: File) => {
     if (!file) return;
@@ -463,7 +471,7 @@ function ReviewWorkspace() {
   const evidenceMedia = evidence?.startsWith("data:video/")
     ? <video src={evidence} controls preload="metadata" aria-label="Provider video evidence" />
     : evidence ? <img src={evidence} alt="Provider evidence" /> : null;
-  return <div className="v2-page"><header><small>Review & repair</small><h1>{shot.title}</h1><p>Compare storyboard intent with attached provider evidence. Nothing is inferred from the proxy frame.</p></header><div className="v2-review"><section><div><small>Storyboard intent / reference proxy</small><img src={shot.image} alt="Storyboard reference" /></div><div><small>Provider render evidence</small>{evidenceMedia || <button type="button" onClick={() => input.current?.click()}><UploadSimple size={24} /><strong>Attach provider render</strong><span>Image or video, required before QC can pass</span></button>}<input hidden ref={input} type="file" accept="image/*,video/*" onChange={(event) => attach(event.target.files?.[0])} /></div></section><aside><div className={`v2-review-status ${shot.review.status}`}>QC status: {shot.review.status}</div><div className="v2-qc-gates"><label><input type="checkbox" checked={shot.review.temporalPass === true} onChange={(event) => updateReview(shot.id, { temporalPass: event.target.checked })} /><span><strong>Temporal coherence verified</strong><small>Motion, timing, and physical behavior hold across the render.</small></span></label><label><input type="checkbox" checked={shot.review.continuityPass === true} onChange={(event) => updateReview(shot.id, { continuityPass: event.target.checked })} /><span><strong>Continuity verified</strong><small>Identity, wardrobe, object state, geography, and final frame match the locks.</small></span></label></div><label><span>Evidence-based critique</span><textarea value={shot.review.critique} onChange={(event) => updateReview(shot.id, { critique: event.target.value })} placeholder="Identity changes after contact; final frame loses the product; wheel motion slides..." /></label><button type="button" disabled={!shot.review.renderUrl || !shot.review.critique.trim()} onClick={() => analyzeReview(shot.id)}><Brain size={16} /> Analyze failure classes</button>{shot.review.proposals.map((proposal) => <label className="v2-proposal" key={proposal.id}><input type="checkbox" checked={proposal.selected} onChange={() => toggleProposal(shot.id, proposal.id)} /><span><strong>{proposal.label}</strong><small>{proposal.fix}</small></span></label>)}{shot.review.proposals.length > 0 && <button type="button" onClick={() => applyRepairs(shot.id)}><Sparkle size={16} /> Create selected repair packet</button>}</aside></div></div>;
+  return <div className="v2-page"><header><small>Review & repair</small><h1>{shot.title}</h1><p>Compare storyboard intent with attached provider evidence. Nothing is inferred from the proxy frame.</p></header><div className="v2-review"><section><div><small>Storyboard intent / reference proxy</small><img src={shot.image} alt="Storyboard reference" /></div><div><small>Provider render evidence</small>{evidenceMedia || <button type="button" onClick={() => input.current?.click()}><UploadSimple size={24} /><strong>Attach provider render</strong><span>Image or video, required before QC can pass</span></button>}<input hidden ref={input} type="file" accept="image/*,video/*" onChange={(event) => attach(event.target.files?.[0])} /></div></section><aside><div className={`v2-review-status ${shot.review.status}`}>QC status: {shot.review.status}</div>{safetyEntries.length > 0 && <section className="v2-safety-preflight" aria-label="Corpus safety pre-flight"><header><WarningCircle size={16} weight="fill" /><span><strong>Corpus vocabulary check</strong><small>{shot.provider} / {activeVersion.label} / advisory</small></span></header>{safetyEntries.map((hit) => <article key={hit.entryId}><p><mark>{hit.term}</mark><ArrowRight size={12} /><strong>{hit.replacement}</strong></p><small>{hit.note}</small><em>{hit.evidence[0].section}</em><button type="button" onClick={() => applySafetySwap(shot.id, hit.entryId)}>Use corpus wording</button></article>)}</section>}<div className="v2-qc-gates"><label><input type="checkbox" checked={shot.review.temporalPass === true} onChange={(event) => updateReview(shot.id, { temporalPass: event.target.checked })} /><span><strong>Temporal coherence verified</strong><small>Motion, timing, and physical behavior hold across the render.</small></span></label><label><input type="checkbox" checked={shot.review.continuityPass === true} onChange={(event) => updateReview(shot.id, { continuityPass: event.target.checked })} /><span><strong>Continuity verified</strong><small>Identity, wardrobe, object state, geography, and final frame match the locks.</small></span></label></div><label><span>Evidence-based critique</span><textarea value={shot.review.critique} onChange={(event) => updateReview(shot.id, { critique: event.target.value })} placeholder="Identity changes after contact; final frame loses the product; wheel motion slides..." /></label><button type="button" disabled={!shot.review.renderUrl || !shot.review.critique.trim()} onClick={() => analyzeReview(shot.id)}><Brain size={16} /> Analyze failure classes</button>{shot.review.proposals.map((proposal) => <label className="v2-proposal" key={proposal.id}><input type="checkbox" checked={proposal.selected} onChange={() => toggleProposal(shot.id, proposal.id)} /><span><strong>{proposal.label}</strong><small>{proposal.fix}</small></span></label>)}{shot.review.proposals.length > 0 && <button type="button" onClick={() => applyRepairs(shot.id)}><Sparkle size={16} /> Create selected repair packet</button>}</aside></div></div>;
 }
 
 function ScenesWorkspace() {
