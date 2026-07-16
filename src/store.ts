@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { AudioTrack, OSIntelligence, Project, RenderRule, RepairProposal, Scene, Shot, WorkspaceMode } from "./types";
 import { analyzeCritique, compileShot, createProjectFromBlueprint, createProjectFromBrief, createRepairVersion, deriveReviewStatus, moveItem, syncProjectTiming } from "./engine.mjs";
 import { normalizeUniversalShotV2 } from "./universal-packet.mjs";
+import { createSafetyLexiconVersion } from "./safety-lexicon.mjs";
 
 const STORAGE_KEY = "auteur-studio-project-v6";
 type PersistenceStorage = Pick<Storage, "setItem" | "removeItem">;
@@ -214,6 +215,7 @@ interface StudioState {
   analyzeReview: (shotId: string) => void;
   toggleProposal: (shotId: string, proposalId: string) => void;
   applyRepairs: (shotId: string) => void;
+  applySafetySwap: (shotId: string, entryId: string) => void;
   setActiveVersion: (shotId: string, versionId: string) => void;
 }
 
@@ -459,6 +461,18 @@ export const useStudio = create<StudioState>((set, get) => {
       const appliedIds = new Set(shot.activeRepairs.map((repair) => repair.id));
       const nextShot = { ...shot, activeRepairs: [...shot.activeRepairs, ...selected.filter((repair) => !appliedIds.has(repair.id))], versions: [...shot.versions, version], activeVersionId: version.id, packetDirty: false, review: { ...shot.review, proposals: shot.review.proposals.map((proposal) => ({ ...proposal, selected: false })), status: "repair" as const } };
       return { project: { ...state.project, shots: state.project.shots.map((item) => item.id === shot.id ? nextShot : item) }, mode: "prompts", notice: `${version.label} repair packet compiled from reviewed QC.` };
+    }),
+    applySafetySwap: (shotId, entryId) => set((state) => {
+      const shot = state.project.shots.find((item) => item.id === shotId);
+      if (!shot) return state;
+      const currentPacket = shot.packetDirty ? compileShot(state.project, shot, state.renderRules, state.osIntelligence) : undefined;
+      const version = createSafetyLexiconVersion(shot, shot.provider || state.project.provider, entryId, new Date().toISOString(), currentPacket);
+      if (!version) return { notice: "The selected corpus warning is no longer present. Run pre-flight again to refresh the packet." };
+      const nextShot = { ...shot, versions: [...shot.versions, version], activeVersionId: version.id, packetDirty: false };
+      return {
+        project: { ...state.project, shots: state.project.shots.map((item) => item.id === shot.id ? nextShot : item), updatedAt: new Date().toISOString() },
+        notice: `${version.label} created with the corpus-observed wording swap. The prior packet remains unchanged.`,
+      };
     }),
     setActiveVersion: (shotId, versionId) => set((state) => ({
       project: { ...state.project, shots: state.project.shots.map((shot) => shot.id === shotId && shot.versions.some((version) => version.id === versionId) ? { ...shot, activeVersionId: versionId, packetDirty: true } : shot) },

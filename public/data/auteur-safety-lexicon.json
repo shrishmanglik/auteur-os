@@ -1,0 +1,79 @@
+{
+  "schema": "auteur-safety-lexicon/v1",
+  "generatedAt": "2026-07-14T00:00:00.000Z",
+  "policy": {
+    "mode": "advisory",
+    "observedWorkflowEvidence": "CORPUS",
+    "rejectionEvidence": "UNKNOWN",
+    "providerClaims": "UNKNOWN",
+    "productLimits": "UNKNOWN",
+    "rule": "Corpus-observed wording pairs produce a pre-flight warning and an optional visible-effect rewrite. They never block export or assert a provider rejection rule or product policy."
+  },
+  "sources": [
+    {
+      "file": "content/research/google-flow-prompt-kb/google-flow-prompt-kb.html",
+      "sha256": "984E5FEEA1B4BD5D8B0B214DD4077B44F7B21AB57E0DC9925A8C0F181A3AD5F6",
+      "hashNormalization": "LF",
+      "label": "Google Flow Prompt Knowledge Base"
+    },
+    {
+      "file": "content/research/sora-video-prompt-kb/sora-video-prompt-kb.html",
+      "sha256": "10D60656AD42B9AB443E5EED81A85BDF19EDD6E9EAAB31CAABDC86778DCE3371",
+      "hashNormalization": "LF",
+      "label": "Sora Video Prompt Knowledge Base"
+    }
+  ],
+  "entries": [
+    {
+      "id": "safety.veo.ignition",
+      "term": "ignition",
+      "providers": ["veo"],
+      "replacement": "headlight/DRL activation, exhaust pulse with heat haze, gentle suspension response",
+      "compactReplacement": "engine fire-up",
+      "predicateReplacement": "engine fires",
+      "note": "For a Veo/Flow handoff, expand the ignition shorthand into the visible responses paired in corpus record #569. This is advisory workflow evidence, not a documented provider policy.",
+      "observedWorkflowEvidence": "CORPUS",
+      "rejectionEvidence": "UNKNOWN",
+      "providerClaims": "UNKNOWN",
+      "productLimits": "UNKNOWN",
+      "evidence": [
+        {
+          "class": "PROMPT_CORPUS_OBSERVED_WORKFLOW",
+          "role": "term",
+          "sourceFile": "content/research/google-flow-prompt-kb/google-flow-prompt-kb.html",
+          "sourceSha256": "984E5FEEA1B4BD5D8B0B214DD4077B44F7B21AB57E0DC9925A8C0F181A3AD5F6",
+          "section": "All Extracted Prompts / #569 - Video edit / repair prompt",
+          "exactPhrase": "ignition ON → headlights/DRLs ON → exhaust roar + heat shimmer → slow roll → confident pull-away.",
+          "exactPhraseSha256": "BF73BB473D27B81E5DD8D8E644BB0A0B8388E1BC0EA764531147E75D645E8C1B"
+        },
+        {
+          "class": "PROMPT_CORPUS_OBSERVED_WORKFLOW",
+          "role": "replacement",
+          "sourceFile": "content/research/google-flow-prompt-kb/google-flow-prompt-kb.html",
+          "sourceSha256": "984E5FEEA1B4BD5D8B0B214DD4077B44F7B21AB57E0DC9925A8C0F181A3AD5F6",
+          "section": "All Extracted Prompts / #569 - Video edit / repair prompt",
+          "exactPhrase": "headlight/DRL activation, exhaust pulse with heat haze, gentle suspension response",
+          "exactPhraseSha256": "B6FCB773070E0F5546608431779C249E6DED9E3A44ED0467C5E80D4B9E14AA71"
+        },
+        {
+          "class": "PROMPT_CORPUS_OBSERVED_WORKFLOW",
+          "role": "compactReplacement",
+          "sourceFile": "content/research/google-flow-prompt-kb/google-flow-prompt-kb.html",
+          "sourceSha256": "984E5FEEA1B4BD5D8B0B214DD4077B44F7B21AB57E0DC9925A8C0F181A3AD5F6",
+          "section": "All Extracted Prompts / #569 - Video edit / repair prompt",
+          "exactPhrase": "engine fire-up",
+          "exactPhraseSha256": "A14084512A6C7B3D7B877849441B60A258F8298B5C69EC75AED43556A66B871A"
+        },
+        {
+          "class": "PROMPT_CORPUS_OBSERVED_WORKFLOW",
+          "role": "predicateReplacement",
+          "sourceFile": "content/research/google-flow-prompt-kb/google-flow-prompt-kb.html",
+          "sourceSha256": "984E5FEEA1B4BD5D8B0B214DD4077B44F7B21AB57E0DC9925A8C0F181A3AD5F6",
+          "section": "All Extracted Prompts / #569 - Video edit / repair prompt",
+          "exactPhrase": "engine fires",
+          "exactPhraseSha256": "F08004F982D95BEB0EE5A0839ACE46F9A1B1F5FEAA8CC60B07BE926E5CFF273F"
+        }
+      ]
+    }
+  ]
+}

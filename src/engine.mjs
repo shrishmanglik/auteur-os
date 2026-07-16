@@ -1,5 +1,6 @@
 import { normalizeUniversalShotV2, opticsToProse } from "./universal-packet.mjs";
 import { resolveImperfectionAnchors } from "./imperfection-anchors.mjs";
+import { scanSafetyLexicon } from "./safety-lexicon.mjs";
 
 const uid = (prefix = "id") => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 // Canonical duration rounding: every stored or compared duration sum passes through this,
@@ -311,7 +312,8 @@ export function compileShot(project, shot, renderRules = [], intelligence = null
     ...(guidance.failureRepairs.slice(0, 2).map((repair) => `Corpus risk gate: ${repair}`)),
   ];
 
-  return { framePrompt, videoPrompt, audioPrompt, negativePrompt, qcGates, intelligenceSignature };
+  const packet = { framePrompt, videoPrompt, audioPrompt, negativePrompt, qcGates, intelligenceSignature };
+  return { ...packet, safetyHits: scanSafetyLexicon(packet, shot.provider || project.provider) };
 }
 
 export function createRepairVersion(project, shot, proposals, renderRules = [], intelligence = null) {
