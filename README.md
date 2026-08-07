@@ -1,5 +1,8 @@
 # AUTEUR OS
 
+> [!IMPORTANT]
+> This repository is the preserved historical AUTEUR application prototype and is no longer the current development surface. The canonical, maintained framework is [shrishmanglik/auteur-frameworks](https://github.com/shrishmanglik/auteur-frameworks). The reviewed consolidation landed in canonical merge commit [`50ba5e1`](https://github.com/shrishmanglik/auteur-frameworks/commit/50ba5e1f9d5e7279ee241a070f9d747818726f20), and its [repository consolidation record](https://github.com/shrishmanglik/auteur-frameworks/blob/50ba5e1f9d5e7279ee241a070f9d747818726f20/docs/repository-consolidation.md) classifies every reusable, retired, and private-research surface. Use the canonical repository for new work, issues, and pull requests.
+
 A local-first AI production workspace for developing an idea into a treatment, screenplay, scene and shot plan, storyboard direction, continuity system, sound plan, and provider-ready prompt packet.
 
 ## Run
@@ -81,4 +84,4 @@ Production commands are `npm run build:web` and `npm run start:web`. The web run
 
 ## License
 
-Proprietary. Copyright Million Dollar AI Studio. All rights reserved.
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
